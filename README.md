@@ -1,1 +1,2 @@
-# mmos
+# Active Learning for Text Classification
+
