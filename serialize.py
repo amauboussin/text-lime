@@ -16,7 +16,7 @@ def serialize_docs(data, filepath):
        data: list of dicts, "content" key has a spacy doc and other keys have metadata
        filepath: path to write 
     """
-    # data = data.copy()  # don't overwrite the spacy docs with binary data outside this scope
+    data = data.copy()  # don't overwrite the spacy docs with binary data outside this scope
     for row in data:
         # turn doc objects into byte arrays
         row['content'] = row['content'].to_bytes()

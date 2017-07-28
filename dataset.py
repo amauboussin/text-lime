@@ -1,27 +1,9 @@
-import logging
 import os
 
+from dataset_config import DATASET_CONFIG, SAVE_LOCS
 import loaders
 from preprocessing import parse_content_bulk
 from serialize import serialize_docs, read_docs, serialize_model, read_model
-
-
-DATASET_CONFIG = {
-    'ag_news': {
-        'name': 'ag_news',
-         # function that maps from directory -> list of dicts with text and associated metadata
-        'load_function': 'load_ag_news',
-        # input to load_function
-        'load_dir': 'data/ag_news_csv',
-    }
-
-}
-ROOT_DIR = '/Users/amauboussin/Desktop/text/main'
-SAVE_LOCS = {
-    'serialized_data': os.path.join(ROOT_DIR, 'serialized_data'),
-    'models': os.path.join(ROOT_DIR,'serialized_models'),
-}
-
 
 class TextDataSet(object):
     """Spacy docs, metadata, models, and model output related to a text classification data set"""
@@ -43,12 +25,10 @@ class TextDataSet(object):
 
         self.data = None
 
-    def load_data(self):
+    def load_data(self, use_pickle=True):
         """Load data from its original format and parse it into spacy docs"""
 
-        if self.data is not None:
-            pass
-        elif os.path.isfile(self.data_file):
+        if use_pickle and os.path.isfile(self.data_file):
             print 'Loading data from pickle'
             self.data = read_docs(self.data_file)
         else:

@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
@@ -10,23 +11,32 @@ plus functions to inspect their coefficients and values.
 """
 
 
-def get_bow_logistic(vectorizer_params=None, logistic_params=None):
+def get_bow_logistic(vectorizer_params=None, clf_params=None):
     """Get a bag-of-words to logistic regression model"""
     vectorizer_params = vectorizer_params or {}
-    logistic_params = logistic_params or {}
+    clf_params = clf_params or {}
     return Pipeline([
             ('vectorizer', DocsToBagOfWords(**vectorizer_params)),
-            ('clf', LogisticRegression(**logistic_params))
+            ('clf', LogisticRegression(**clf_params))
         ])
 
 
-def get_tfidf_logistic(vectorizer_params={}, logistic_params={}):
+def get_tfidf_logistic(vectorizer_params={}, clf_params={}):
     """Get a bag-of-words to logistic regression model"""
     vectorizer_params = vectorizer_params or {}
-    logistic_params = logistic_params or {}
+    clf_params = clf_params or {}
     return Pipeline([
             ('vectorizer', DocsToTfidf(**vectorizer_params)),
-            ('clf', LogisticRegression(**logistic_params))
+            ('clf', LogisticRegression(**clf_params))
+        ])
+
+def get_tfidf_random_forest(vectorizer_params={}, clf_params={}):
+    """Get a bag-of-words to logistic regression model"""
+    vectorizer_params = vectorizer_params or {}
+    clf_params = clf_params or {}
+    return Pipeline([
+            ('vectorizer', DocsToTfidf(**vectorizer_params)),
+            ('clf', RandomForestClassifier(**clf_params))
         ])
 
 
@@ -104,28 +114,38 @@ def get_coef_times_value(model, X, feature_labels, class_names=None):
             .stack().to_frame('importance'))
 
 
-def results_df(model, docs, labels):
+def results_df(model, docs, labels=None):
+    """Get dataframe with predicted class probabilities"""
     # make sure labels are zero-indexed
-    min_label = min(labels)
-    n_labels = len(set(labels))
-    labels = [label - min_label for label in labels]
     probs = model.predict_proba(docs)
+    n_labels = probs.shape[1] if  probs.shape[1] > 1 else 2
+
+    if labels is not None:  # make sure labels are 0 indexed
+        min_label = min(labels)
+        labels = [label - min_label for label in labels]
 
     if n_labels <= 2:
         raise NotImplementedError('entropy for binary classification')
-    entropy = -np.sum(probs * np.log(probs))
+
+    entropy = -np.sum(probs * np.log(probs), axis=1)
 
     probs_df = pd.DataFrame(probs)
     if n_labels > 2:
         predicted_class = probs_df.idxmax(axis=1)
-        error = [1. - row[label]
-                 for (i, row), label in zip(probs_df.iterrows(), labels)]
+        if labels is not None:
+            error = [1. - row[label]
+                     for (i, row), label in zip(probs_df.iterrows(), labels)]
 
     else:
         predicted_class = (probs_df[0] > .5).astype(int)
-        error = (predicted_class - probs_df[0]).abs()
-    probs_df = probs_df.assign(predicted=predicted_class, error=error, label=labels,
-                               correct=predicted_class == labels, entropy=entropy)
+        #TODO(andrew): add error for binary
+        error = None
+        raise NotImplementedError('error for binary classification')
+
+    if labels is not None:
+        probs_df = probs_df.assign(error=error, label=labels, correct=predicted_class == labels)
+
+    probs_df = probs_df.assign(predicted=predicted_class, entropy=entropy)
     return probs_df
 
 
