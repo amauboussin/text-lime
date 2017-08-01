@@ -114,10 +114,10 @@ def get_coef_times_value(model, X, feature_labels, class_names=None):
             .stack().to_frame('importance'))
 
 
-def results_df(model, docs, labels=None):
+def results_df(predict_proba, docs, labels=None):
     """Get dataframe with predicted class probabilities"""
     # make sure labels are zero-indexed
-    probs = model.predict_proba(docs)
+    probs = predict_proba(docs)
     n_labels = probs.shape[1] if  probs.shape[1] > 1 else 2
 
     if labels is not None:  # make sure labels are 0 indexed

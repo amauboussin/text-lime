@@ -13,7 +13,8 @@ DATASET_CONFIG = {
 ROOT_DIR = '/Users/amauboussin/Desktop/text/main'
 SAVE_LOCS = {
     'serialized_data': os.path.join(ROOT_DIR, 'serialized_data'),
-    'models': os.path.join(ROOT_DIR,'serialized_models'),
+    'models': os.path.join(ROOT_DIR, 'serialized_models'),
+    'embeddings': os.path.join(ROOT_DIR, 'embeddings'),
 }
 
 

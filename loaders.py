@@ -1,4 +1,5 @@
 import csv
+from random import randrange
 import os
 
 from unidecode import unidecode
@@ -32,7 +33,18 @@ def load_ag_news(path):
     return _load_csv_dataset(row_to_content, row_to_label, path)
 
 
+def load_test_data(size, n_classes):
+    """Simple synethetic data for testing"""
+    return [{
+        'id': i,
+        'content': 'Test document {}'.format(i),
+        'label': randrange(n_classes),
+        'metadata': 'Test metadata {}'.format(i)
+    } for i in range(1, size+1)]
+
+
 def _load_sklearn_dataset():
+    """Load one of the datasets included in the sklearn library"""
     pass
 
 
