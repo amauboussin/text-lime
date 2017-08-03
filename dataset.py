@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import re
 
@@ -14,7 +15,7 @@ FT_FILTER_REGEX = re.compile('[^a-zA-Z:]')
 
 
 class TextDataSet(object):
-    """Spacy docs, metadata, models, and model output related to a text classification data set"""
+    """Spacy docs, metadata, unsupervised embeddings, and model output related to a text data set"""
     def __init__(self, dataset_name):
         """Create the data set object"""
 
@@ -26,7 +27,7 @@ class TextDataSet(object):
         config = DATASET_CONFIG[dataset_name]
         self.name = dataset_name
         self.loader = self.get_loader(config['load_function'])
-        self.load_dir = config['load_dir']
+        self.load_args = config['load_args']
         self.data_file = os.path.join(SAVE_LOCS['serialized_data'],
                                       '{}.pickle'.format(self.name))
         self.data = None
@@ -36,7 +37,9 @@ class TextDataSet(object):
         self.ft_model_file = os.path.join(SAVE_LOCS['embeddings'], self.name) + '.bin'
         self.ft_model = None
         self.ft_vocab = None
-        self.ft_matrix = None
+        self.ft_matrices = None
+        # only tokens of the same category are eligible to be similar words
+        self.get_token_category = lambda t: t.tag_
 
     def load_data(self, use_pickle=True):
         """Load data from its original format and parse it into spacy docs"""
@@ -46,7 +49,7 @@ class TextDataSet(object):
             self.data = read_docs(self.data_file)
         else:
             print 'Loading data from original source'
-            raw_text_data = self.loader(self.load_dir)
+            raw_text_data = self.loader(**self.load_args)
             self.data = np.array(list(parse_content_bulk(raw_text_data)))
 
     def serialize_data(self):
@@ -57,7 +60,7 @@ class TextDataSet(object):
 
     def fasttext_preprocess(self):
         """Write a text file that can be fed into fasttext to train unsupervised embeddings"""
-        lines = [self.get_fasttext_representation(row['content']) + '\n'
+        lines = [self._get_fasttext_representation(row['content']) + '\n'
                  for row in self.data]
         with open(self.ft_input_file, 'w') as wfile:
             wfile.writelines(lines)
@@ -69,18 +72,43 @@ class TextDataSet(object):
 
         self.ft_model = fasttext.load_model(self.ft_model_file)
 
-    def create_embeddings(self, overwrite=False):
+    def create_embeddings(self, method='skipgram', overwrite=False):
         """Train word embeddings using fasttext"""
+        if method not in ['skipgram', 'cbow']:
+            raise ValueError('Method must be skipgram or cbow')
         output_name = os.path.join(SAVE_LOCS['embeddings'], self.name)
         if overwrite or (not os.path.isfile(self.ft_model_file)):
-            fasttext.skipgram(self.ft_input_file, output_name)
+            self.fasttext_preprocess()
+            if method == 'skipgram':
+                fasttext.skipgram(self.ft_input_file, output_name)
+            else:
+                fasttext.cbow(self.ft_input_file, output_name)
 
     def _setup_vector_similarity(self):
         """Setup matrix of word vectors for similarity calculations"""
         if self.ft_model is None:
             raise ValueError('Can\'t get vector similarity before loading fast text embeddings')
-        self.ft_vocab = np.array(list(self.ft_model.words))
-        self.ft_matrix = np.array([self.ft_model[word] for word in self.ft_vocab])
+
+        #  group tokens by tag
+        self.tokens_by_tag = defaultdict(set)
+        for row in self.data:
+            for token in row['content']:
+                token_category = self.get_token_category(token)
+                self.tokens_by_tag[token_category].add(token.text.lower())
+
+        #  create a matrix of word embeddings for each tag
+        self.ft_matrices = {}
+        self.ft_vocab = {}
+        for tag, this_tag_tokens in self.tokens_by_tag.items():
+            word_vectors_and_values = [(self.ft_model[word], word)
+                                       for word in self.ft_model.words
+                                       if word in this_tag_tokens
+                                       ]
+            if len(word_vectors_and_values) == 0:
+                continue
+            word_matrix, word_values = zip(*word_vectors_and_values)
+            self.ft_matrices[tag] = np.array(word_matrix)
+            self.ft_vocab[tag] = np.array(word_values)
 
     def get_word_vector(self, word):
         """Get 1d numpy array of embedding for the given word"""
@@ -94,7 +122,7 @@ class TextDataSet(object):
         """K nearest neighbors to the a 1d word vector by cosine distance"""
         if self.ft_matrix is None:
             self._setup_vector_similarity()
-        all_similarities = cosine_similarity(self.ft_matrix, vector.reshape(1, -1))
+        all_similarities = cosine_similarity(self.ft_matrix, vector.reshape(1, -1)).squeeze()
         most_similar_indices = (-all_similarities).argsort()[:k]
         return self.ft_vocab[most_similar_indices]
 
@@ -103,13 +131,14 @@ class TextDataSet(object):
         return self.most_similar_to_vector(self.get_word_vector(word), k)
 
     @staticmethod
-    def get_fasttext_representation(doc):
+    def _get_fasttext_representation(doc):
         """Remove non-alpha characters and convert to lowercase for input into fasttext"""
         tokens = [re.sub(FT_FILTER_REGEX, '', token.text).lower() for token in doc]
         return ' '.join([token for token in tokens if token.strip()])
 
     @staticmethod
     def get_loader(loader_name):
+        """Get function that goes from directory -> formatted dataset"""
         if not hasattr(loaders, loader_name):
             raise ValueError('Dataset loader "{}" not found'.format(loader_name))
         return getattr(loaders, loader_name)

@@ -3,19 +3,23 @@ from functools import partial
 import numpy as np
 from sklearn.base import TransformerMixin
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from spacy.tokens.doc import Doc
 
 """
 Sklearn transforms to go from spacy docs to formats that can be fed into a model
 """
 
 
-def _get_tokens(spacy_doc, lowercase=True, remove_stopwords=False):
+def _get_tokens(doc_or_token_list, lowercase=True, remove_stopwords=False):
     """Return list of tokens from a spacy doc + associated metadata"""
-    return [t.text.lower() if lowercase else t.text
-            for t in spacy_doc
-            if not (remove_stopwords and t.is_stop)
-            ]
-
+    if type(doc_or_token_list) == Doc:
+        return [t.text.lower() if lowercase else t.text
+                for t in doc_or_token_list
+                if not (remove_stopwords and t.is_stop)
+                ]
+    else: # list of tokens
+        return [token.lower() if lowercase else token
+                for token in doc_or_token_list]
 
 def _identity(x):
     """Can't use a lambda for this if we want to pickle these classes"""
@@ -23,7 +27,7 @@ def _identity(x):
 
 
 class DocsToBagOfWords(CountVectorizer):
-    """Extend CountVectorizer to take spacy docs as input"""
+    """Extend CountVectorizer to take spacy docs or token lists as input"""
 
     def __init__(self, n_gram_range=(1, 1), lowercase=True,
                  stop_words=False, max_df=1., min_df=1):
@@ -54,7 +58,7 @@ class DocsToBagOfWords(CountVectorizer):
 
 
 class DocsToTfidf(TfidfVectorizer):
-    """Extend TfidfVectorizer to take spacy docs as input"""
+    """Extend TfidfVectorizer to take spacy docs or token lists as input"""
 
     def __init__(self, n_gram_range=(1, 1), lowercase=True,
                  stop_words=False, max_df=1., min_df=1):

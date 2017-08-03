@@ -1,8 +1,9 @@
 from funcy import pluck
 from lime.lime_text import LimeTextExplainer
 
-from models import results_df
+from models.model_utils import results_df
 from preprocessing import get_spacy_parser
+
 """
 Compute metrics for each example to be used in active learning strategies
 """

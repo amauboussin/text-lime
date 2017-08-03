@@ -1,44 +1,9 @@
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
 
-from feature_engineering import DocsToBagOfWords, DocsToTfidf
 """
-Linear models for text classification that take spacy docs as input,
-plus functions to inspect their coefficients and values.
+Functions to inspect the coefficients and classification results of models.
 """
-
-
-def get_bow_logistic(vectorizer_params=None, clf_params=None):
-    """Get a bag-of-words to logistic regression model"""
-    vectorizer_params = vectorizer_params or {}
-    clf_params = clf_params or {}
-    return Pipeline([
-            ('vectorizer', DocsToBagOfWords(**vectorizer_params)),
-            ('clf', LogisticRegression(**clf_params))
-        ])
-
-
-def get_tfidf_logistic(vectorizer_params={}, clf_params={}):
-    """Get a bag-of-words to logistic regression model"""
-    vectorizer_params = vectorizer_params or {}
-    clf_params = clf_params or {}
-    return Pipeline([
-            ('vectorizer', DocsToTfidf(**vectorizer_params)),
-            ('clf', LogisticRegression(**clf_params))
-        ])
-
-def get_tfidf_random_forest(vectorizer_params={}, clf_params={}):
-    """Get a bag-of-words to logistic regression model"""
-    vectorizer_params = vectorizer_params or {}
-    clf_params = clf_params or {}
-    return Pipeline([
-            ('vectorizer', DocsToTfidf(**vectorizer_params)),
-            ('clf', RandomForestClassifier(**clf_params))
-        ])
-
 
 def get_coef_df(model, feature_labels, class_names=None):
     """Get a dataframe of labeled coefficients from a vectorizer and fitted linear model
@@ -118,7 +83,7 @@ def results_df(predict_proba, docs, labels=None):
     """Get dataframe with predicted class probabilities"""
     # make sure labels are zero-indexed
     probs = predict_proba(docs)
-    n_labels = probs.shape[1] if  probs.shape[1] > 1 else 2
+    n_labels = probs.shape[1] if probs.shape[1] > 1 else 2
 
     if labels is not None:  # make sure labels are 0 indexed
         min_label = min(labels)

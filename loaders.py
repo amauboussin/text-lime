@@ -37,9 +37,9 @@ def load_test_data(size, n_classes):
     """Simple synethetic data for testing"""
     return [{
         'id': i,
-        'content': 'Test document {}'.format(i),
+        'content': u'Test document {}'.format(i),
         'label': randrange(n_classes),
-        'metadata': 'Test metadata {}'.format(i)
+        'metadata': u'Test metadata {}'.format(i)
     } for i in range(1, size+1)]
 
 
