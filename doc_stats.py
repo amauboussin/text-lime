@@ -1,6 +1,7 @@
 import numpy as np
 
-from models.model_utils import get_coef_df, get_bow_logistic, get_tfidf_logistic
+from models.model_utils import get_coef_df
+from models.sklearn_models import get_bow_logistic, get_tfidf_logistic
 
 
 def top_k_vector_similarity(query_docs, candidate_docs, k=5):

@@ -71,6 +71,7 @@ class TextDataSet(object):
             raise Exception('No fast text embedding model found at {}'.format(self.ft_model_file))
 
         self.ft_model = fasttext.load_model(self.ft_model_file)
+        self._setup_vector_similarity()
 
     def create_embeddings(self, method='skipgram', overwrite=False):
         """Train word embeddings using fasttext"""
@@ -83,6 +84,7 @@ class TextDataSet(object):
                 fasttext.skipgram(self.ft_input_file, output_name)
             else:
                 fasttext.cbow(self.ft_input_file, output_name)
+        self.load_fasttext_model()
 
     def _setup_vector_similarity(self):
         """Setup matrix of word vectors for similarity calculations"""
@@ -120,8 +122,6 @@ class TextDataSet(object):
 
     def most_similar_to_vector(self, vector, k):
         """K nearest neighbors to the a 1d word vector by cosine distance"""
-        if self.ft_matrix is None:
-            self._setup_vector_similarity()
         all_similarities = cosine_similarity(self.ft_matrix, vector.reshape(1, -1)).squeeze()
         most_similar_indices = (-all_similarities).argsort()[:k]
         return self.ft_vocab[most_similar_indices]

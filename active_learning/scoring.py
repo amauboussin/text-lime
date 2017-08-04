@@ -17,6 +17,8 @@ def add_prediction_info(predict_proba, data):
     return data
 
 
+def add_mmos_explanations(predict_proba, rows, n_classes)
+
 def add_lime_explanation(predict_proba, rows, n_classes, num_features=5, num_samples=1000):
     """Add LIME importance values to each row of data
     Args:

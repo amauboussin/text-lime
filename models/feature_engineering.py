@@ -21,6 +21,7 @@ def _get_tokens(doc_or_token_list, lowercase=True, remove_stopwords=False):
         return [token.lower() if lowercase else token
                 for token in doc_or_token_list]
 
+
 def _identity(x):
     """Can't use a lambda for this if we want to pickle these classes"""
     return x
