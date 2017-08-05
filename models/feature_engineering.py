@@ -30,7 +30,7 @@ def _identity(x):
 class DocsToBagOfWords(CountVectorizer):
     """Extend CountVectorizer to take spacy docs or token lists as input"""
 
-    def __init__(self, n_gram_range=(1, 1), lowercase=True,
+    def __init__(self, ngram_range=(1, 1), lowercase=True,
                  stop_words=False, max_df=1., min_df=1):
         """Instantiate vectorizer (see CountVectorizer docs)
         Args:
@@ -50,7 +50,7 @@ class DocsToBagOfWords(CountVectorizer):
             preprocessor=partial(_get_tokens, lowercase=lowercase,
                                  remove_stopwords=stop_words),
             tokenizer=_identity,
-            ngram_range=n_gram_range,
+            ngram_range=ngram_range,
             lowercase=False,
             stop_words=None,
             max_df=max_df,
@@ -61,7 +61,7 @@ class DocsToBagOfWords(CountVectorizer):
 class DocsToTfidf(TfidfVectorizer):
     """Extend TfidfVectorizer to take spacy docs or token lists as input"""
 
-    def __init__(self, n_gram_range=(1, 1), lowercase=True,
+    def __init__(self, ngram_range=(1, 1), lowercase=True,
                  stop_words=False, max_df=1., min_df=1):
         """Instantiate vectorizer (see TfidfVectorizer docs)
         Args:
@@ -81,7 +81,7 @@ class DocsToTfidf(TfidfVectorizer):
             preprocessor=partial(_get_tokens, lowercase=lowercase,
                                  remove_stopwords=stop_words),
             tokenizer=_identity,
-            ngram_range=n_gram_range,
+            ngram_range=ngram_range,
             lowercase=False,
             stop_words=None,
             max_df=max_df,

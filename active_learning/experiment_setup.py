@@ -12,17 +12,16 @@ from models.model_utils import results_df
 class ActiveLearningExperiment(object):
     """Manage the train/test splits and record keeping for an active learning experiment"""
 
-    def __init__(self, dataset, model_fitting_func, scoring_pipeline,
-                 sampling_strategy, pool_fractions, test_frac,
+    def __init__(self, dataset, model_fitting_func, sampling_strategy,
+                 pool_fractions, sample_fractions, test_frac,
                  name=None, sort_by=None, sort_by_reverse=False, seed=1):
         """Instantiate experiment
         Args:
             dataset: TextDataSet for the experiment
             model_fitting_func: Function from data -> (predict_proba function) model
-            scoring_pipeline: Function from (predict_proba, data) -> data with added scores
-                to be used by the sampling strategy
             sampling_strategy: Function from (n, data) -> the n examples selected for training
             pool_fractions: List of floats indicating pool sizes
+            sample_fractions: List of floats indicating how many samples are taken from each pool
             test_frac: (float) Fraction of each pool to reserve for testing
             sort_by: (str) Key to sort by when creating pools (e.g. publication date)
             sort_by_reverse: (bool) If True, sort by descending order when creating pools
@@ -36,9 +35,10 @@ class ActiveLearningExperiment(object):
         self.train_pools, self.test_pools = create_pools(self.dataset.data, pool_fractions,
                                                          test_frac, seed)
 
-        self.score_pool = scoring_pipeline
-        self.sample_pool = sampling_strategy
+        self.sample_from_pool = sampling_strategy
         self.fit_model = model_fitting_func
+
+        self.sample_fractions = sample_fractions
 
         # initialize the training data with the first pool
         self.training_data = self.train_pools[0]
@@ -52,18 +52,30 @@ class ActiveLearningExperiment(object):
 
     def fit_initial_model(self):
         """Fit a model to the original training set and record its performance"""
+        self.log('Fitting initial model on {} examples'.format(len(self.training_data)))
         predict_proba = self.fit_model(self.training_data)
+
         self.record_model_stats(predict_proba, 0)
+        self.log_accuracy(predict_proba, model_number=0)
+
         return predict_proba
 
     def run_iteration(self, iteration_index, predict_proba):
         """Select examples from the next pool, train a model, and record the results"""
-        scored_pool = self.score_pool(predict_proba, self.train_pools[iteration_index])
-        selected_samples = self.sample_pool(scored_pool)
-        self.training_data += selected_samples
+        pool = self.train_pools[iteration_index]
 
+        n_samples_to_take = int(self.sample_fractions[iteration_index] * len(pool))
+        selected_samples = self.sample_from_pool(n_samples_to_take, predict_proba,
+                                                 self.training_data, pool, self.dataset)
+        self.log('Selecting {} examples from pool of {}'.format(n_samples_to_take, len(pool)))
+
+        self.training_data = np.concatenate((self.training_data, np.array(selected_samples)))
+
+        self.log('Fitting model {} on {} examples'.format(iteration_index + 1, len(self.training_data)))
         predict_proba = self.fit_model(self.training_data)
+
         self.record_model_stats(predict_proba, iteration_index)
+        self.log_accuracy(predict_proba, model_number=iteration_index)
         return predict_proba
 
     def record_model_stats(self, predict_proba, model_index):
@@ -74,11 +86,25 @@ class ActiveLearningExperiment(object):
             prediction_df['pool'] = pool_index
             self.model_results = pd.concat((self.model_results, prediction_df))
 
+    def log_accuracy(self, predict_proba, model_number):
+        """Log model accuracy"""
+        train_accuracy = results_df(predict_proba, pluck('content', self.training_data),
+                                    pluck('label', self.training_data)).correct.mean()
+        test_accuracy = self.model_results[self.model_results.model == model_number].correct.mean()
+
+        self.log('Train accuracy: {:.2f}'.format(train_accuracy))
+        self.log('Test accuracy: {:.2f}'.format(test_accuracy))
+
     def serialize_model_results(self):
         """Save model performance stats to disk"""
         timestamp = datetime.now().strftime('%Y-%m-%d_%H:%M')
         output_file = '{}_{}.csv'.format(self.name, timestamp)
         self.model_results.to_csv(output_file, index=False)
+
+    @staticmethod
+    def log(msg):
+        """Experiment log directs here"""
+        print msg
 
 
 def create_pools(data, pool_fractions, test_fraction, seed=None):
@@ -92,13 +118,13 @@ def create_pools(data, pool_fractions, test_fraction, seed=None):
     return train_pools, test_pools
 
 
-def create_model_fitting_func(sklearn_model):
+def create_model_fitting_func(model):
     """Get a model fitting function from an sklearn pipeline"""
 
     def model_fitting_func(train_data):
         """Returns a function (example -> class probabilities) from training data"""
-        sklearn_model = clone(sklearn_model)
-        sklearn_model.fit(train_data)
+        sklearn_model = clone(model)
+        sklearn_model.fit(pluck('content', train_data), pluck('label', train_data))
         return sklearn_model.predict_proba
 
     return model_fitting_func

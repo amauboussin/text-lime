@@ -31,6 +31,7 @@ class TextDataSet(object):
         self.data_file = os.path.join(SAVE_LOCS['serialized_data'],
                                       '{}.pickle'.format(self.name))
         self.data = None
+        self.n_classes = None
 
         self.ft_input_file = os.path.join(SAVE_LOCS['embeddings'],
                                           '{}_ft_input.txt'.format(self.name))
@@ -51,6 +52,12 @@ class TextDataSet(object):
             print 'Loading data from original source'
             raw_text_data = self.loader(**self.load_args)
             self.data = np.array(list(parse_content_bulk(raw_text_data)))
+
+        self.n_classes = len(set([row['label'] for row in self.data]))
+
+    def shuffle_data(self):
+        """Shuffle the data so it is in random order"""
+        np.random.shuffle(self.data)
 
     def serialize_data(self):
         """Write spacy docs and metadata to disk"""

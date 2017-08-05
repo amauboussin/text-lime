@@ -8,9 +8,9 @@ NEIGHBORS_TO_CONSIDER = 100
 #  https://spacy.io/docs/usage/pos-tagging
 TAG_BLACKLIST = {'PUNCT', '-LRB-', '-RRB-', ',', ':', '.',
                  '``', "''", '""', '#', '$', 'HVS', 'HYPH', 'PRP', 'PRP$', 'SP',
-                 'DT', 'IN', 'XX'}
+                 'ADD', 'DT', 'IN', 'EX', 'XX'}
 similarity_function = euclidean_distances
-
+bigger_is_closer = False
 
 def softmax(x, temp):
     """Returns softmax probabilities with temperature"""
@@ -18,7 +18,7 @@ def softmax(x, temp):
     return e_x / e_x.sum()
 
 
-def get_neighboring_docs(dataset, doc, max_subset_size, softmax_temp=.1):
+def get_neighboring_docs(dataset, doc, max_subset_size, softmax_temp=1.):
 
     token_list = [token.text.lower() for token in doc]
     masks = get_all_masks(len(token_list), max_subset_size)
@@ -29,9 +29,8 @@ def get_neighboring_docs(dataset, doc, max_subset_size, softmax_temp=.1):
     for i, token in enumerate(doc):
         token_text = token.text.lower()
         alllow_token_to_be_replaced = True
-        if token.tag_ in TAG_BLACKLIST:
+        if token.tag_ in TAG_BLACKLIST or dataset.ft_vocab[token.tag_].size < NEIGHBORS_TO_CONSIDER:
             alllow_token_to_be_replaced = False
-
         else:
             no_word_vector = len(dataset.get_word_vector(token_text)) == 0
             empty_tag = len(dataset.ft_matrices[token.tag_]) == 0
@@ -76,12 +75,17 @@ def choose_new_tokens(token, token_vector, tag_matrix, tag_vocab,
     tag_matrix = tag_matrix[mask]
 
     all_similarities = similarity_function(tag_matrix, token_vector.reshape(1, -1)).squeeze()
-    most_similar_indices = (all_similarities).argsort()[:NEIGHBORS_TO_CONSIDER]
+    all_similarities = -all_similarities if bigger_is_closer else all_similarities
 
+    most_similar_indices = all_similarities.argsort()[:NEIGHBORS_TO_CONSIDER]
     similar_tokens = tag_vocab[most_similar_indices]
     token_distances = all_similarities[most_similar_indices]
-    token_probabilities = softmax(all_similarities[most_similar_indices], softmax_temp)
 
+    # normalize distances
+    token_distances = (token_distances - token_distances.mean()) - token_distances.std()
+
+    #  put negative distances into the softmax so smaller magnitudes are sampled more frequently
+    token_probabilities = softmax(-all_similarities[most_similar_indices], softmax_temp)
     selected_indices = np.random.choice(np.arange(token_distances.size),
                                         size=n_samples, p=token_probabilities)
 

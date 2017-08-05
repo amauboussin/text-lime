@@ -26,6 +26,3 @@ SAVE_LOCS = {
     'models': os.path.join(ROOT_DIR, 'serialized_models'),
     'embeddings': os.path.join(ROOT_DIR, 'embeddings'),
 }
-
-
-

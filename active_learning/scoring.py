@@ -1,6 +1,7 @@
 from funcy import pluck
 from lime.lime_text import LimeTextExplainer
 
+from explain import get_explanation
 from models.model_utils import results_df
 from preprocessing import get_spacy_parser
 
@@ -17,9 +18,17 @@ def add_prediction_info(predict_proba, data):
     return data
 
 
-def add_mmos_explanations(predict_proba, rows, n_classes)
+def add_mmos_explanations(predict_proba, data, dataset):
+    from tqdm import tqdm
+    for row in tqdm(data[:1000]):
+        row['explanation'] = get_explanation(dataset, row['content'], predict_proba,
+                                             n_labels=4,#dataset.n_classes,
+                                             max_simultaneous_perturbations=2,
+                                             softmax_temps=[.1, 1., 3.])
 
-def add_lime_explanation(predict_proba, rows, n_classes, num_features=5, num_samples=1000):
+    return data
+
+def add_lime_explanation(predict_proba, data, n_classes, num_features=8, num_samples=1000):
     """Add LIME importance values to each row of data
     Args:
         predict_proba: Function that goes from example -> class probabilities
@@ -41,12 +50,12 @@ def add_lime_explanation(predict_proba, rows, n_classes, num_features=5, num_sam
         parsed_docs = [spacy_parser(unicode(doc)) for doc in docs]
         return predict_proba(parsed_docs)
 
-    for row in rows:
-        if 'lime_explanation' not in row:
+    for row in data:
+        if True or 'lime_explanation' not in row:
             space_separated_tokens = ' '.join(map(str, row['content']))
             row['lime_explanation'] = explainer.explain_instance(space_separated_tokens,
                                                                  predict_proba_from_text,
                                                                  num_features=num_features,
                                                                  num_samples=num_samples,
                                                                  top_labels=n_classes)
-    return rows
+    return data

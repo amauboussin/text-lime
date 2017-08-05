@@ -33,7 +33,7 @@ def get_explanation(dataset, doc, predict_proba, n_labels=None,
         score = local_model.score(all_distances, blackbox_probs[:, label])
         explanations_by_label[label] = Explanation(doc, local_model, label, score)
 
-    return explanations_by_label
+    return explanations_by_label, all_tokens, all_distances, blackbox_probs
 
 
 def convert_probs_to_margins(y):
@@ -64,6 +64,6 @@ class Explanation(object):
         self.label = label
         self.score = score
         #  multiply coefs by 100 just to make things more readable
-        self.coef_by_token = zip([round(n * 100, 4) for n in local_model.coef_], doc)
+        self.coef_by_token = zip([round(n * -100, 4) for n in local_model.coef_], doc)
 
 

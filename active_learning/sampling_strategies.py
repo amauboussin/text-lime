@@ -1,34 +1,44 @@
 import numpy as np
 import pandas as pd
 
+from scoring import add_prediction_info, add_lime_explanation
 
-def random_sampling(k, original_data, pool):
+def random_sampling(k, predict_proba, original_data, pool):
     """Random sample without replacement"""
     return np.random.choice(pool, k, replace=False)
 
 
-def uncertainty_sampling(k, original_data, pool):
-    """Choose the examples whose predicted probabilities have the maximum entropy"""
-
-    if not all(['entropy' in row for row in pool]):
-        raise ValueError('Pool doesn\'t have prediction scores scores')
-
+def uncertainty_sampling(k, predict_proba, original_data, pool, dataset):
+    """Choose the k examples whose predicted probabilities have the maximum entropy"""
+    pool = add_prediction_info(predict_proba, pool)
     entropy_sorted_pool = sorted(pool, key=lambda row: row['entropy'], reverse=True)
     return entropy_sorted_pool[:k]
 
 
-def lime_score_sampling(k, original_data, pool):
-    """Choose the examples are the least well explained by a local sparse regression"""
+def certainty_sampling(k, predict_proba, original_data, pool, dataset):
+    """Choose the k examples whose predicted probabilities have the minimum entropy"""
+    pool = add_prediction_info(predict_proba, pool)
+    entropy_sorted_pool = sorted(pool, key=lambda row: row['entropy'], reverse=False)
+    return entropy_sorted_pool[:k]
 
-    if not all(['lime_explanation' in row for row in pool]):
-        raise ValueError('Pool doesn\'t have LIME scores')
 
+def lime_score_sampling(k, predict_proba, original_data, pool, dataset):
+    """Choose the k examples are the least well explained by a local sparse regression"""
+    pool = add_lime_explanation(predict_proba, pool, 2)
     lime_score_sorted = sorted(pool, key=lambda row: row['lime_explanation'].score)
     return lime_score_sorted[:k]
 
 
-def misclassified_lime_word_sampling(k, original_data, pool):
+def glove_mean_of_misclassified_examples(k, predict_proba, original_data, pool, dataset):
+    """Choose examples that have similar document means to misclassified examples"""
+    pass
+
+
+def misclassified_lime_word_sampling(k, predict_proba, original_data, pool, dataset):
     """Choose the examples by looking at the most important words in misclassified examples"""
+    original_data = add_lime_explanation(predict_proba, original_data, 2)
+    pool = add_lime_explanation(predict_proba, pool, 2)
+
 
     token_stats = _get_lime_token_misclassification_stats(original_data)
 
