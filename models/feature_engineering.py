@@ -31,12 +31,12 @@ class DocsToBagOfWords(CountVectorizer):
     """Extend CountVectorizer to take spacy docs or token lists as input"""
 
     def __init__(self, ngram_range=(1, 1), lowercase=True,
-                 stop_words=False, max_df=1., min_df=1):
+                 remove_stop_words=True, max_df=1., min_df=1):
         """Instantiate vectorizer (see CountVectorizer docs)
         Args:
             ngram_range: The lower and upper boundary of the range of n-values,
             lowercase: If true, convert all tokens to lowercase
-            stop_words: If true, remove english stop words
+            remove_stop_words: If true, remove english stop words
             max_df: (float or int) Ignore terms that have a document frequency
                 strictly higher than the given threshold.
                 If float, the parameter represents a proportion of documents,
@@ -48,7 +48,7 @@ class DocsToBagOfWords(CountVectorizer):
         #  in the preprocessor and do nothing for the tokenization step
         super(DocsToBagOfWords, self).__init__(
             preprocessor=partial(_get_tokens, lowercase=lowercase,
-                                 remove_stopwords=stop_words),
+                                 remove_stopwords=remove_stop_words),
             tokenizer=_identity,
             ngram_range=ngram_range,
             lowercase=False,
@@ -62,12 +62,12 @@ class DocsToTfidf(TfidfVectorizer):
     """Extend TfidfVectorizer to take spacy docs or token lists as input"""
 
     def __init__(self, ngram_range=(1, 1), lowercase=True,
-                 stop_words=False, max_df=1., min_df=1):
+                 remove_stop_words=True, max_df=1., min_df=1):
         """Instantiate vectorizer (see TfidfVectorizer docs)
         Args:
             ngram_range: The lower and upper boundary of the range of n-values,
             lowercase: If true, convert all tokens to lowercase
-            stop_words: If true, remove english stop words
+            remove_stop_words: If true, remove english stop words
             max_df: (float or int) Ignore terms that have a document frequency
                 strictly higher than the given threshold.
                 If float, the parameter represents a proportion of documents,
@@ -79,7 +79,7 @@ class DocsToTfidf(TfidfVectorizer):
         #  in the preprocessor and do nothing for the tokenization step
         super(DocsToTfidf, self).__init__(
             preprocessor=partial(_get_tokens, lowercase=lowercase,
-                                 remove_stopwords=stop_words),
+                                 remove_stopwords=remove_stop_words),
             tokenizer=_identity,
             ngram_range=ngram_range,
             lowercase=False,

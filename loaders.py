@@ -2,6 +2,8 @@ import csv
 from random import randrange
 import os
 
+import numpy as np
+from sklearn.datasets import fetch_20newsgroups
 from unidecode import unidecode
 
 """
@@ -18,8 +20,17 @@ Functions to load datasets from whatever format they are in to a list of dicts:
 
 
 def load_newsgroups():
-    #fetch_20newsgroups(subset='train',
-    pass
+    ng = fetch_20newsgroups()
+    ids = np.arange(ng.target.size)
+    data = [
+        {
+            'id': _id,
+            'label': label,
+            'content': text
+        }
+        for _id, label, text in zip(ids, ng.target, ng.data)
+        ]
+    return data
 
 
 def load_ag_news(path):

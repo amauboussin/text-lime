@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from dataset_config import DATASET_CONFIG, SAVE_LOCS
 import loaders
-from preprocessing import parse_content_bulk
+from preprocessing import parse_content_bulk, parse_content_serial
 from serialize import serialize_docs, read_docs, serialize_model, read_model
 
 FT_FILTER_REGEX = re.compile('[^a-zA-Z:]')
@@ -16,18 +16,18 @@ FT_FILTER_REGEX = re.compile('[^a-zA-Z:]')
 
 class TextDataSet(object):
     """Spacy docs, metadata, unsupervised embeddings, and model output related to a text data set"""
-    def __init__(self, dataset_name):
+    def __init__(self, dataset_name, loader=None):
         """Create the data set object"""
 
-        if dataset_name not in DATASET_CONFIG:
+        if dataset_name not in DATASET_CONFIG and loader is None:
             raise ValueError('Dataset {} not found, options are: '.format(
                 dataset_name, DATASET_CONFIG.keys()
             ))
 
-        config = DATASET_CONFIG[dataset_name]
+        config = DATASET_CONFIG.get(dataset_name, {})
         self.name = dataset_name
-        self.loader = self.get_loader(config['load_function'])
-        self.load_args = config['load_args']
+        self.loader = loader or self.get_loader(config['load_function'])
+        self.load_args = config.get('load_args', {})
         self.data_file = os.path.join(SAVE_LOCS['serialized_data'],
                                       '{}.pickle'.format(self.name))
         self.data = None
@@ -51,7 +51,7 @@ class TextDataSet(object):
         else:
             print 'Loading data from original source'
             raw_text_data = self.loader(**self.load_args)
-            self.data = np.array(list(parse_content_bulk(raw_text_data)))
+            self.data = np.array(list(parse_content_serial(raw_text_data)))
 
         self.n_classes = len(set([row['label'] for row in self.data]))
 
@@ -119,6 +119,11 @@ class TextDataSet(object):
             self.ft_matrices[tag] = np.array(word_matrix)
             self.ft_vocab[tag] = np.array(word_values)
 
+    def get_all_embedding_means(self, include_stopwords=False):
+        """Save embedding mean for every document"""
+        for row in self.data:
+            row['embedding_mean'] = self.get_embedding_mean(row['content'], include_stopwords)
+
     def get_word_vector(self, word):
         """Get 1d numpy array of embedding for the given word"""
         if self.ft_model is None:
@@ -137,10 +142,18 @@ class TextDataSet(object):
         """K nearest neighbors to the given word's vector by cosine distance"""
         return self.most_similar_to_vector(self.get_word_vector(word), k)
 
+    def get_embedding_mean(self, doc, include_stopwords=True):
+        """Get mean embedding of the given document"""
+        tokens = self._get_fasttext_representation(doc, include_stopwords)
+        embeddings = np.array([self.ft_model[token] for token in tokens])
+        return np.mean(embeddings, axis=0)
+
     @staticmethod
-    def _get_fasttext_representation(doc):
+    def _get_fasttext_representation(doc, include_stopwords=True):
         """Remove non-alpha characters and convert to lowercase for input into fasttext"""
-        tokens = [re.sub(FT_FILTER_REGEX, '', token.text).lower() for token in doc]
+        tokens = [re.sub(FT_FILTER_REGEX, '', token.text).lower()
+                  for token in doc
+                  if include_stopwords or (not token.is_stop)]
         return ' '.join([token for token in tokens if token.strip()])
 
     @staticmethod

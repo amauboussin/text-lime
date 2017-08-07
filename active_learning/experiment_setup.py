@@ -63,10 +63,12 @@ class ActiveLearningExperiment(object):
     def run_iteration(self, iteration_index, predict_proba):
         """Select examples from the next pool, train a model, and record the results"""
         pool = self.train_pools[iteration_index]
+        validation_data = self.test_pools[iteration_index-1]
 
         n_samples_to_take = int(self.sample_fractions[iteration_index] * len(pool))
         selected_samples = self.sample_from_pool(n_samples_to_take, predict_proba,
-                                                 self.training_data, pool, self.dataset)
+                                                 self.training_data, validation_data, pool,
+                                                 self.dataset)
         self.log('Selecting {} examples from pool of {}'.format(n_samples_to_take, len(pool)))
 
         self.training_data = np.concatenate((self.training_data, np.array(selected_samples)))

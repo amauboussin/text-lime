@@ -1,4 +1,4 @@
-import cPickle
+from copy import copy
 import pickle
 
 from spacy.tokens.doc import Doc
@@ -16,12 +16,17 @@ def serialize_docs(data, filepath):
        data: list of dicts, "content" key has a spacy doc and other keys have metadata
        filepath: path to write 
     """
-    data = data.copy()  # don't overwrite the spacy docs with binary data outside this scope
+    docs = [row['content'] for row in data]
     for row in data:
         # turn doc objects into byte arrays
-        row['content'] = row['content'].to_bytes()
+        row['binary_content'] = row.pop('content').to_bytes()
 
     pickle.dump(data, open(filepath, 'wb'))
+
+    # remove binary content from the in-memory data and put spacy docs back
+    for row, doc in zip(data, docs):
+        row['content'] = doc
+        del row['binary_content']
 
 
 def read_docs(filepath):
@@ -31,7 +36,7 @@ def read_docs(filepath):
     for row in data:
         doc = Doc(spacy_parser.vocab)
         # read doc object from serialized byte array
-        row['content'] = doc.from_bytes(row['content'])
+        row['content'] = doc.from_bytes(row.pop('binary_content'))
     return data
 
 

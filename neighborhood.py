@@ -12,6 +12,7 @@ TAG_BLACKLIST = {'PUNCT', '-LRB-', '-RRB-', ',', ':', '.',
 similarity_function = euclidean_distances
 bigger_is_closer = False
 
+
 def softmax(x, temp):
     """Returns softmax probabilities with temperature"""
     e_x = np.exp(x / temp)

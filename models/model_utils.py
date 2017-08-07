@@ -85,10 +85,6 @@ def results_df(predict_proba, docs, labels=None):
     probs = predict_proba(docs)
     n_labels = probs.shape[1] if probs.shape[1] > 1 else 2
 
-    if labels is not None:  # make sure labels are 0 indexed
-        min_label = min(labels)
-        labels = [label - min_label for label in labels]
-
     if n_labels <= 2:
         raise NotImplementedError('entropy for binary classification')
 

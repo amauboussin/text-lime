@@ -9,6 +9,8 @@ from preprocessing import get_spacy_parser
 Compute metrics for each example to be used in active learning strategies
 """
 
+DEFAULT_SOFTMAX_TEMPS = [.1, 1., 3.]
+
 
 def add_prediction_info(predict_proba, data):
     """Add entry for predictions and entropy to data"""
@@ -18,15 +20,20 @@ def add_prediction_info(predict_proba, data):
     return data
 
 
-def add_mmos_explanations(predict_proba, data, dataset):
+def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps=None):
     from tqdm import tqdm
-    for row in tqdm(data[:1000]):
+    if softmax_temps is None:
+        softmax_temps = DEFAULT_SOFTMAX_TEMPS
+    for i, row in enumerate(data):
+        if i % 1000 == 0:
+            print 'Done with ', i
         row['explanation'] = get_explanation(dataset, row['content'], predict_proba,
-                                             n_labels=4,#dataset.n_classes,
+                                             n_classes=n_classes,
                                              max_simultaneous_perturbations=2,
-                                             softmax_temps=[.1, 1., 3.])
+                                             softmax_temps=softmax_temps)
 
     return data
+
 
 def add_lime_explanation(predict_proba, data, n_classes, num_features=8, num_samples=1000):
     """Add LIME importance values to each row of data

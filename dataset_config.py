@@ -10,8 +10,10 @@ DATASET_CONFIG = {
             'path': 'data/ag_news_csv',
         },
     },
+    '20newsgroups': {
+        'load_function': 'load_newsgroups',
+    },
     'small_test': {
-        'name': 'test',
         'load_function': 'load_test_data',
         'load_args': {
             'size': 1000,
