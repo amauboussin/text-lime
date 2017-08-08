@@ -20,7 +20,8 @@ def add_prediction_info(predict_proba, data):
     return data
 
 
-def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps=None):
+def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps=None,
+                          max_simultaneous_perturbations=2):
     from tqdm import tqdm
     if softmax_temps is None:
         softmax_temps = DEFAULT_SOFTMAX_TEMPS
@@ -29,7 +30,7 @@ def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps
             print 'Done with ', i
         row['explanation'] = get_explanation(dataset, row['content'], predict_proba,
                                              n_classes=n_classes,
-                                             max_simultaneous_perturbations=2,
+                                             max_simultaneous_perturbations=max_simultaneous_perturbations,
                                              softmax_temps=softmax_temps)
 
     return data

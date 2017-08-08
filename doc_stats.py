@@ -1,20 +1,64 @@
+from funcy import pluck
 import numpy as np
+from sklearn.metrics.pairwise import cosine_distances
 
 from models.model_utils import get_coef_df
 from models.sklearn_models import get_bow_logistic, get_tfidf_logistic
 
 
-def top_k_vector_similarity(query_docs, candidate_docs, k=5):
-    """Given a list of docs, get the top k closest docs from the candidate_docs"""
+def top_k_custom_vector_similarity(query_docs, candidate_docs, k):
+    """Given most similar docs by looking at custom trained vector means"""
+    if not all(['embedding_mean' in example for example in np.concatenate((query_docs, candidate_docs))]):
+        raise ValueError('Not all embedding means have been calculated')
+    distances = cosine_distances(pluck('embedding_mean', query_docs), pluck('embedding_mean', candidate_docs))
+    closest_docs = np.argsort(distances, axis=1)[:, :k]
+    return closest_docs
 
-    for d1 in query_docs:
-        similarities = np.array([d1['content'].similarity(d2['content'])
-                                 for d2 in candidate_docs])
-        top_doc_indices = np.argpartition(similarities, -k)[-k:]
-        ids = [doc['id'] for doc in np.array(candidate_docs)[top_doc_indices]]
-        d1['similar_doc_ids'] = ids
 
-    return query_docs
+def top_k_glove_vector_similarity(query_docs, candidate_docs, k):
+    """Given most similar docs by looking at glove vector means"""
+    get_glove_vector = lambda row: row['content'].vector
+    distances = cosine_distances(map(get_glove_vector, query_docs), map(get_glove_vector, candidate_docs))
+    closest_docs = np.argsort(distances, axis=1)[:, :k]
+    return closest_docs
+
+
+def top_k_token_tag_similarity(query_docs, candidate_docs, k):
+    """Given most similar docs by looking at (token, tag) overlap"""
+    return _get_clostest_k(query_docs, candidate_docs, k, token_tag_overlap, True)
+
+
+def token_tag_overlap(d1, d2):
+    """Get number of (token, tag) pairs that overlap between two documents"""
+    token_tags1 = set([(t.text.lower(), t.tag_) for t in d1['content']])
+    token_tags2 = set([(t.text.lower(), t.tag_) for t in d2['content']])
+    return len(token_tags1.intersection(token_tags2)) / float(len(token_tags1) + len(token_tags2))
+
+
+def _get_clostest_k(query_docs, candidate_docs, k, distance_function, reverse=False):
+    distances = np.array([[distance_function(qd, cd) for cd in candidate_docs]
+                          for qd in query_docs])
+    if reverse:
+        distances = -distances
+    closest_docs = np.argsort(distances, axis=1)[:, :k]
+    return closest_docs
+
+
+def explanation_dot_product_similarity(query_docs, candidate_docs, k, explanation_key):
+    """Given most similar docs by looking at tokens cited as important"""
+    get_label_explanation = lambda row: row[explanation_key].as_list(row['predicted'])
+
+    def explanation_dict_dot_product(d1, d2):
+        """Dot product between explanation coefficients"""
+        return np.sum([d1.get(token, 0) * v for token, v in d2.items()])
+
+    query_explanations = map(get_label_explanation, query_docs)
+    candidate_explanations = map(get_label_explanation, candidate_docs)
+
+    distances = np.array([[explanation_dict_dot_product(qe, ce) for ce in candidate_explanations]
+                          for qe in query_explanations])
+    closest_docs = np.argsort(-distances, axis=1)[:, :k]
+    return closest_docs
 
 
 def fit_linear_model(train_docs, train_labels, tfidf=True, vectorizer_params=None, logistic_params=None):

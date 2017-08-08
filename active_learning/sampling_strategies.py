@@ -59,9 +59,6 @@ def lime_score_sampling(k, predict_proba, original_data, valid_data, pool, datas
 def embedding_mean_similarity(k, predict_proba, original_data, valid_data, pool, dataset):
     """Choose examples that have similar document means to misclassified examples"""
 
-    # all_similarities = cosine_similarity(self.ft_matrix, vector.reshape(1, -1)).squeeze()
-    # most_similar_indices = (-all_similarities).argsort()[:k]
-    # return self.ft_vocab[most_similar_indices]
     pass
 
 
@@ -70,11 +67,12 @@ def contains_misunderstood_words(k, predict_proba, original_data, valid_data, po
 
     softmax_temp = .025
     explanation_key = 'explanation'
-    valid_data = add_mmos_explanations(predict_proba, valid_data, dataset, 1, softmax_temps=[1.])
-    valid_data = add_prediction_info(predict_proba, valid_data)
 
-    confusion_matrix = get_confusion_matrix(data)
+    valid_data = add_prediction_info(predict_proba, valid_data)
+    confusion_matrix = get_confusion_matrix(valid_data)
     all_labels = range(confusion_matrix.shape[0])
+
+    valid_data = add_mmos_explanations(predict_proba, valid_data, dataset, len(all_labels), softmax_temps=[1., 5.])
 
     all_token_stats = {}
     confusion_matrix_counts = []
@@ -82,10 +80,10 @@ def contains_misunderstood_words(k, predict_proba, original_data, valid_data, po
     for label, predicted_class in product(all_labels, all_labels):
         if label == predicted_class:
             continue
-        stats = get_token_misclassification_stats(pool, explanation_key, predicted_class, label)
+        stats = get_token_misclassification_stats(valid_data, explanation_key, predicted_class, label)
 
         #  only keep things tokens that on average contributed to misclassification
-        stats = stats[stats.total_contribution > 0]
+        stats = stats.loc[stats.total_contribution > 0]
         stats['rank'] = stats.frequency_rank * stats.total_contribution
         stats['sampling_prob'] = softmax(stats['rank'].values, softmax_temp)
         all_token_stats[(label, predicted_class)] = stats
@@ -101,11 +99,14 @@ def contains_misunderstood_words(k, predict_proba, original_data, valid_data, po
     selected_examples = set()
     while len(selected_examples) < k:
         # sample uniformly from non-diagonal confusion matrix cells
-        bin = np.random.choice(confusion_matrix_labels, p=confusion_matrix_probs)
-
+        bin_index = np.random.choice(np.arange(len(confusion_matrix_labels)),
+                                     p=confusion_matrix_probs)
+        label_and_predicted = confusion_matrix_labels[bin_index]
+        if all_token_stats[label_and_predicted].empty:
+            continue
         # sample from token importance with softmax
-        token = np.random.choice(all_token_stats[bin].index.values,
-                                 p=all_token_stats[bin].sampling_prob)
+        token = np.random.choice(all_token_stats[label_and_predicted].index.values,
+                                 p=all_token_stats[label_and_predicted].sampling_prob)
 
         if token not in samples_by_token:
             continue

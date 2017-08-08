@@ -93,7 +93,6 @@ def choose_new_tokens(token, token_vector, tag_matrix, tag_vocab,
     return [(similar_tokens[i], token_distances[i]) for i in selected_indices]
 
 
-
 def get_n_gram_masks(n_tokens, max_ngram_size):
     """Get a mask for every n_gram, from unigrams to max_ngram_size"""
     masks = []

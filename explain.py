@@ -125,6 +125,7 @@ def get_token_misclassification_stats(data, key, predicted_class=None, label=Non
         correct_class = predicted_class is None or row['predicted'] == predicted_class
         correct_label = label is None or row['label'] == label
         if correct_class and correct_label and row['label'] != row['predicted']:
+            # check to make sure explanation exists for the given class
             for_wrong_class += row[key].as_list(row['predicted']) if row['predicted'] in row[key].scores else []
             against_correct_class += row[key].as_list(row['label']) if row['label'] in row[key].scores else []
 
@@ -173,11 +174,12 @@ def get_important_tokens(data, key, predicted_class=None, label=None):
     return token_stats
 
 
-def group_examples_by_token(data):
+def group_examples_by_token(data, lowercase=True):
     """Return a dictionary token: indices of examples that include that token"""
     examples_by_token = defaultdict(list)
     for i, row in enumerate(data):
-        tokens = [t.lower() for t in row['content']]
+        tokens = [t.text.lower() if lowercase else t.text
+                  for t in row['content']]
         for t in tokens:
             examples_by_token[t].append(i)
     return examples_by_token
@@ -186,11 +188,11 @@ def group_examples_by_token(data):
 def get_confusion_matrix(data):
     """Given data with keys for predicted class and label keys, return 2d dict confusion matrix"""
     #  assume labels range from 0 to max_label
-    n_labels = max([row['label'] for row in data]) + 1
+    n_labels = int(max([row['label'] for row in data]) + 1)
 
     matrix = np.zeros(shape=(n_labels, n_labels))
     for row in data:
-        matrix[row['label'], row['predicted']] += 1
+        matrix[int(row['label']), int(row['predicted'])] += 1
     return matrix
 
 

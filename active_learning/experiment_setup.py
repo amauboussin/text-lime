@@ -34,7 +34,6 @@ class ActiveLearningExperiment(object):
             self.dataset.data = sorted(self.dataset.data, key=pluck(sort_by), reverse=sort_by_reverse)
         self.train_pools, self.test_pools = create_pools(self.dataset.data, pool_fractions,
                                                          test_frac, seed)
-
         self.sample_from_pool = sampling_strategy
         self.fit_model = model_fitting_func
 
