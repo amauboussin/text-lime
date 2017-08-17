@@ -126,8 +126,8 @@ def get_token_misclassification_stats(data, key, predicted_class=None, label=Non
         correct_label = label is None or row['label'] == label
         if correct_class and correct_label and row['label'] != row['predicted']:
             # check to make sure explanation exists for the given class
-            for_wrong_class += row[key].as_list(row['predicted']) if row['predicted'] in row[key].scores else []
-            against_correct_class += row[key].as_list(row['label']) if row['label'] in row[key].scores else []
+            for_wrong_class += row[key].as_list(row['predicted']) if _explanation_preset(key, row) else []
+            against_correct_class += row[key].as_list(row['label']) if _explanation_preset(key, row) else []
 
     token_values = (pd.DataFrame(for_wrong_class, columns=['token', 'for_wrong_class'])
                     .merge(pd.DataFrame(against_correct_class, columns=['token', 'against_correct_class'])))
@@ -160,7 +160,7 @@ def get_important_tokens(data, key, predicted_class=None, label=None):
     for row in data:
         correct_prediction = predicted_class is None or row['predicted'] == predicted_class
         correct_label = label is None or row['label'] == label
-        explanation_present = key in row and row['predicted'] in row[key].scores
+        explanation_present = _explanation_preset(key, row)
         if correct_prediction and correct_label and explanation_present:
             token_weights += row[key].as_list(row['predicted'])
 
@@ -173,6 +173,13 @@ def get_important_tokens(data, key, predicted_class=None, label=None):
     token_stats['mean_weight'] = token_stats['weight'] / token_stats['token_count']
     return token_stats
 
+def _explanation_preset(key, row):
+    # TODO add top labels to explanation
+
+    if key == 'explanation':
+        return key in row and row['predicted'] in row[key].scores
+    else:
+        return key in row and row['predicted'] in row[key].top_labels
 
 def group_examples_by_token(data, lowercase=True):
     """Return a dictionary token: indices of examples that include that token"""

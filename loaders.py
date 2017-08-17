@@ -3,6 +3,7 @@ from random import randrange
 import os
 
 import numpy as np
+import pandas as pd
 from sklearn.datasets import fetch_20newsgroups
 from unidecode import unidecode
 
@@ -52,6 +53,42 @@ def load_test_data(size, n_classes):
         'label': randrange(n_classes),
         'metadata': u'Test metadata {}'.format(i)
     } for i in range(1, size+1)]
+
+
+def load_arxiv():
+    def get_latest_archive_id():
+        files = os.listdir('/Users/amauboussin/Desktop/old_arxiv/miles_archive/')
+        return max([int(f.split('.')[0]) for f in files if f.endswith('pickle')])
+
+    def strip_version(link):
+        return link[:-2]
+
+    def load():
+        path_template = '/Users/amauboussin/Desktop/old_arxiv/miles_archive/{}.pickle'
+        df = pd.DataFrame()
+        for i in range(get_latest_archive_id() + 1):
+            df = df.append(pd.read_pickle(path_template.format(i)))
+        df['unique_link'] = df.link.apply(strip_version)
+        return df.groupby('unique_link').first().reset_index()
+
+    df = load()
+
+    categories = ['cs.AI', 'cs.DS', 'stat.ML', 'cs.CL']
+    # categories = ['cs.AI', 'cs.CV', 'stat.ML', 'cs.CL']
+
+    examples = []
+    _id = 1
+    for label, label_name in enumerate(categories):
+        class_df = df[df['category'] == label_name].sort_values('published').tail(500)
+        for i, row in class_df.iterrows():
+            examples.append({
+                'id': _id,
+                'content': unicode((row.title + ' ' + row.summary).replace('\n', ' ')),
+                'published': row.published,
+                'label': label
+            })
+            _id += 1
+    return examples
 
 
 def _load_sklearn_dataset():

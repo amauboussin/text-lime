@@ -30,7 +30,8 @@ def get_neighboring_docs(dataset, doc, max_subset_size, softmax_temp=1.):
     for i, token in enumerate(doc):
         token_text = token.text.lower()
         alllow_token_to_be_replaced = True
-        if token.tag_ in TAG_BLACKLIST or dataset.ft_vocab[token.tag_].size < NEIGHBORS_TO_CONSIDER:
+
+        if token.tag_ in TAG_BLACKLIST or token.tag_ not in dataset.ft_vocab or dataset.ft_vocab[token.tag_].size < NEIGHBORS_TO_CONSIDER:
             alllow_token_to_be_replaced = False
         else:
             no_word_vector = len(dataset.get_word_vector(token_text)) == 0

@@ -22,7 +22,6 @@ def add_prediction_info(predict_proba, data):
 
 def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps=None,
                           max_simultaneous_perturbations=2):
-    from tqdm import tqdm
     if softmax_temps is None:
         softmax_temps = DEFAULT_SOFTMAX_TEMPS
     for i, row in enumerate(data):

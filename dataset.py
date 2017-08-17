@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime
 import os
 import re
 
@@ -16,18 +17,23 @@ FT_FILTER_REGEX = re.compile('[^a-zA-Z:]')
 
 class TextDataSet(object):
     """Spacy docs, metadata, unsupervised embeddings, and model output related to a text data set"""
-    def __init__(self, dataset_name, loader=None):
+    def __init__(self, dataset, name=None):
         """Create the data set object"""
 
-        if dataset_name not in DATASET_CONFIG and loader is None:
-            raise ValueError('Dataset {} not found, options are: '.format(
-                dataset_name, DATASET_CONFIG.keys()
-            ))
+        if isinstance(dataset, str):
+            if dataset not in DATASET_CONFIG:
+                raise ValueError('Dataset {} not found, options are: '.format(
+                    dataset, DATASET_CONFIG.keys()
+                ))
+            config = DATASET_CONFIG.get(dataset, {})
+            self.loader = self.get_loader(config['load_function'])
+            self.load_args = config.get('load_args', {})
+            self.name = dataset
+        else:
+            self.loader = lambda : dataset
+            self.load_args = {}
+            self.name = name or datetime.now().strftime('%Y-%m-%d_%H:%M')
 
-        config = DATASET_CONFIG.get(dataset_name, {})
-        self.name = dataset_name
-        self.loader = loader or self.get_loader(config['load_function'])
-        self.load_args = config.get('load_args', {})
         self.data_file = os.path.join(SAVE_LOCS['serialized_data'],
                                       '{}.pickle'.format(self.name))
         self.data = None

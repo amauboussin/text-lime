@@ -10,6 +10,10 @@ DATASET_CONFIG = {
             'path': 'data/ag_news_csv',
         },
     },
+    'arxiv': {
+        'name': 'arxiv',
+        'load_function': 'load_arxiv',
+    },
     '20newsgroups': {
         'load_function': 'load_newsgroups',
     },
