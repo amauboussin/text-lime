@@ -9,8 +9,8 @@ NEIGHBORS_TO_CONSIDER = 100
 TAG_BLACKLIST = {'PUNCT', '-LRB-', '-RRB-', ',', ':', '.',
                  '``', "''", '""', '#', '$', 'HVS', 'HYPH', 'PRP', 'PRP$', 'SP',
                  'ADD', 'DT', 'IN', 'EX', 'XX'}
-similarity_function = euclidean_distances
-bigger_is_closer = False
+similarity_function = cosine_similarity
+bigger_is_closer = True
 
 
 def softmax(x, temp):

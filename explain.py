@@ -11,7 +11,7 @@ LOCAL_MODEL = Ridge()
 
 class Explanation(object):
 
-    def __init__(self, doc, local_model_by_label, score_by_label, blackbox_probs):
+    def __init__(self, predicted_label, doc, local_model_by_label, score_by_label, blackbox_probs, all_tokens, all_distances):
 
         self.scores = score_by_label
         self.local_models = local_model_by_label
@@ -22,6 +22,10 @@ class Explanation(object):
             label: zip(string_tokens, [coef for coef in model.coef_])
             for label, model in self.local_models.items()
         }
+
+        self.contrastive_examples = get_contrastive_examples(predicted_label, all_distances,
+                                                             all_tokens, blackbox_probs)
+
 
     def as_list(self, label):
         """Return a list of tuples (token, contribution) for the given label"""
@@ -56,6 +60,7 @@ def get_explanation(dataset, doc, predict_proba, n_classes=None,
 
     blackbox_model_prediction = predict_proba([doc])[0]
     labels_to_explain = np.argsort(-blackbox_model_prediction)[:n_classes or 1]
+    predicted_label = labels_to_explain[0]
 
     blackbox_probs = predict_proba(all_tokens)
 
@@ -68,9 +73,39 @@ def get_explanation(dataset, doc, predict_proba, n_classes=None,
         local_model_by_label[label] = local_model
         score_by_label[label] = score
 
-    explanation = Explanation(doc, local_model_by_label, score_by_label, blackbox_probs)
+    explanation = Explanation(predicted_label, doc, local_model_by_label, score_by_label,
+                              blackbox_probs, all_tokens, all_distances)
 
+    explanation.tokens = all_tokens
+    explanation.distances = all_distances
+    explanation.probs = blackbox_probs
     return explanation
+
+
+def get_contrastive_examples(doc, predicted, distances, tokens, probs):
+    """Find documents similar to the current document that have different labels"""
+    original_tokens = [t.text.lower() for t in doc]
+    distances_by_example = pd.Series(np.sum(np.abs(distances), axis=1))
+    predictions_by_example = np.argmax(probs, axis=1)
+    probs_df = pd.DataFrame(probs)
+    contrastive_examples = {}
+    for label in range(probs.shape[1]):
+        if label == predicted:
+            continue
+        predicted_as_class = predictions_by_example == label
+
+        # if the prediction ever flipped to the class, minimize distance it took to flip
+        if np.sum(predicted_as_class) > 0:
+            contrast_index = distances_by_example[predicted_as_class].argmin()
+        # if it never flipped, just maximize probability
+        else:
+            contrast_index = probs_df.loc[:, label].argmax()
+        new_tokens = tokens[contrast_index]
+        diffs = [(i, (original, new))
+                 for i, (original, new) in enumerate(zip(original_tokens, new_tokens))
+                 if original != new]
+        contrastive_examples[label] = diffs
+    return contrastive_examples
 
 
 def convert_probs_to_margins(y):

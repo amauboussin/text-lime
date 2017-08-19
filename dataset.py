@@ -4,8 +4,10 @@ import os
 import re
 
 import fasttext
+from funcy import pluck
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.model_selection import train_test_split
 
 from dataset_config import DATASET_CONFIG, SAVE_LOCS
 import loaders
@@ -47,6 +49,22 @@ class TextDataSet(object):
         self.ft_matrices = None
         # only tokens of the same category are eligible to be similar words
         self.get_token_category = lambda t: t.tag_
+
+    @property
+    def docs(self):
+        return pluck('content', self.data)
+
+    @property
+    def labels(self):
+        return pluck('labels', self.data)
+
+    def train_test_split(self, test_size, seed=None):
+        """Randomly split data and return (x_train, y_train, x_test, y_test)"""
+        train, test = train_test_split(self.data, test_size=test_size, random_state=seed)
+        return train, test
+        # x_train, y_train = pluck('content', train), pluck('label', train)
+        # x_test, y_test = pluck('content', test), pluck('label', test)
+        # return x_train, y_train, x_test, y_test
 
     def load_data(self, use_pickle=True):
         """Load data from its original format and parse it into spacy docs"""

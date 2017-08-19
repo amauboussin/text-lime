@@ -25,7 +25,7 @@ def add_mmos_explanations(predict_proba, data, dataset, n_classes, softmax_temps
     if softmax_temps is None:
         softmax_temps = DEFAULT_SOFTMAX_TEMPS
     for i, row in enumerate(data):
-        if i % 1000 == 0:
+        if i % 10 == 0:
             print 'Done with ', i
         row['explanation'] = get_explanation(dataset, row['content'], predict_proba,
                                              n_classes=n_classes,

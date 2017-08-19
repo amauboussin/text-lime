@@ -8,7 +8,6 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from active_learning.scoring import add_prediction_info, add_lime_explanation, add_mmos_explanations
-from active_learning.experiment_setup import ActiveLearningExperiment
 from doc_stats import top_k_token_tag_similarity, top_k_custom_vector_similarity, top_k_glove_vector_similarity
 from explain import get_confusion_matrix, get_important_tokens, get_token_misclassification_stats
 from models.sklearn_models import get_bow_logistic
@@ -24,6 +23,9 @@ SIMILARITY_METRICS = {
 }
 
 SOFTMAX_TEMPS = [1., 3.,  5.]
+SOFTMAX_TEMPS = [.1, .3,  .8]
+SOFTMAX_TEMPS = None
+
 N_LIME_FEATURES = 8
 N_LIME_SAMPLES = 10
 
@@ -42,14 +44,14 @@ class ModelVisualization(object):
 
         self.train_data_by_label = self._group_examples_by_label(self.train_data)
         self.valid_data_by_label = self._group_examples_by_label(self.train_data)
+
         self.confusion_matrix = None
-        self.predict_proba = None
         self.explanation_aggregates = None
 
     @classmethod
     def from_sklearn_model(cls, name, dataset, valid_percent, model, split_random_seed=None, labels=None):
 
-        split_random_seed = split_random_seed or randint(1, 10e9)
+        split_random_seed = split_random_seed or randint(0, 2**32-1)
         train_data, valid_data = train_test_split(dataset.data, test_size=valid_percent,
                                                   random_state=split_random_seed)
         model.fit(pluck('content', train_data), pluck('label', train_data))
@@ -73,14 +75,16 @@ class ModelVisualization(object):
             row['lime_explanation'] = row['lime_explanation'].as_list(int(row['predicted']))
             row['lime_explanation'] = [(token, round(value, 4)) for token, value in row['lime_explanation']]
 
-    def add_explanations(self, set_size=2):
+    def add_explanations(self, set_size=2, softmaxt_temps=None):
+        softmaxt_temps = softmaxt_temps or SOFTMAX_TEMPS
         self.valid_data = add_mmos_explanations(self.predict_proba, self.valid_data, self.dataset,
-                                                self.dataset.n_classes, softmax_temps=SOFTMAX_TEMPS,
+                                                self.dataset.n_classes, softmax_temps=softmaxt_temps,
                                                 max_simultaneous_perturbations=set_size)
         self.explanation_aggregates = self._aggregate_reasons(self.valid_data, 'explanation')
 
         # swap out explanation to just explain the predicted class
         for row in self.valid_data:
+            row['original_explanation'] = row['explanation']
             row['explanation'] = row['explanation'].as_list(row['predicted'])
             row['explanation'] = [(token, round(value, 4)) for token, value in row['explanation']]
 
