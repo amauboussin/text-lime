@@ -22,9 +22,7 @@ SIMILARITY_METRICS = {
     'custom': top_k_custom_vector_similarity,
 }
 
-SOFTMAX_TEMPS = [1., 3.,  5.]
-SOFTMAX_TEMPS = [.1, .3,  .8]
-SOFTMAX_TEMPS = None
+DEFAULT_SOFTMAX_TEMPS = [.1, .3, .8]
 
 N_LIME_FEATURES = 8
 N_LIME_SAMPLES = 10
@@ -75,18 +73,26 @@ class ModelVisualization(object):
             row['lime_explanation'] = row['lime_explanation'].as_list(int(row['predicted']))
             row['lime_explanation'] = [(token, round(value, 4)) for token, value in row['lime_explanation']]
 
-    def add_explanations(self, set_size=2, softmaxt_temps=None):
-        softmaxt_temps = softmaxt_temps or SOFTMAX_TEMPS
+    def add_explanations(self, n_gram_size=2, softmaxt_temps=None):
+        softmaxt_temps = softmaxt_temps or DEFAULT_SOFTMAX_TEMPS
         self.valid_data = add_mmos_explanations(self.predict_proba, self.valid_data, self.dataset,
                                                 self.dataset.n_classes, softmax_temps=softmaxt_temps,
-                                                max_simultaneous_perturbations=set_size)
+                                                max_simultaneous_perturbations=n_gram_size)
         self.explanation_aggregates = self._aggregate_reasons(self.valid_data, 'explanation')
 
         # swap out explanation to just explain the predicted class
+        labels = range(len(self.class_labels))
         for row in self.valid_data:
-            row['original_explanation'] = row['explanation']
-            row['explanation'] = row['explanation'].as_list(row['predicted'])
-            row['explanation'] = [(token, round(value, 4)) for token, value in row['explanation']]
+            # row['original_explanation'] = row['explanation']
+            explanation_object = row['explanation']
+            row['contrastive_examples'] = explanation_object.contrastive_examples
+            explanations_by_class = {label: explanation_object.as_list(label) for label in labels}
+            js_formatted_explanation = [[token] + [round(explanations_by_class[label][i][1], 4) for label in labels]
+                 for i, (token, value) in enumerate(explanations_by_class[0])]
+            row['explanation'] = js_formatted_explanation
+            # row['explanation'] = row['explanation'].as_list(row['predicted'])
+            # row['explanation'] = [(token, round(value, 4)) for token, value in row['explanation']]
+            row['stats'] = explanation_object.blackbox_prob_stats(row['predicted']).to_dict()
 
     def _aggregate_reasons(self, data, explanation_key):
         """Return dictionary (label, predicted) -> Dataframe of misclassified tokens"""
@@ -180,7 +186,7 @@ class ModelVisualization(object):
                     continue
                 elif key == 'published':
                     val = str(val)
-                if type(val) == np.float64:
+                if type(val) == np.float64 or type(val) == np.float32:
                     val = round(val, 4)
                 example_to_serialize[key] = val
             serialized_data.append(example_to_serialize)

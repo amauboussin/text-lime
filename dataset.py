@@ -89,10 +89,10 @@ class TextDataSet(object):
             raise ValueError('Data is not loaded')
         serialize_docs(self.data, self.data_file)
 
-    def fasttext_preprocess(self):
+    def _fasttext_preprocess(self, data):
         """Write a text file that can be fed into fasttext to train unsupervised embeddings"""
         lines = [self._get_fasttext_representation(row['content']) + '\n'
-                 for row in self.data]
+                 for row in data]
         with open(self.ft_input_file, 'w') as wfile:
             wfile.writelines(lines)
 
@@ -104,17 +104,31 @@ class TextDataSet(object):
         self.ft_model = fasttext.load_model(self.ft_model_file)
         self._setup_vector_similarity()
 
-    def create_embeddings(self, method='skipgram', overwrite=False):
-        """Train word embeddings using fasttext"""
+    def create_embeddings(self, method='skipgram', data=None, overwrite=False,
+                          dim=128, context_size=5, epochs=10, min_count=5):
+        """Train word embeddings using fasttext
+        Args:
+            method: Either skipgram or cbow
+            data: Examples to use to get embeddings
+            overwrite: Whether or not to overwrite existing embeddings file
+            dim: Size of word vectors
+            context_size: Size of the context window
+            epochs: Number of epochs
+            min_count: Minimal number of word occurences to have a vector
+        """
+        if data is None:
+            data = self.data
         if method not in ['skipgram', 'cbow']:
             raise ValueError('Method must be skipgram or cbow')
         output_name = os.path.join(SAVE_LOCS['embeddings'], self.name)
         if overwrite or (not os.path.isfile(self.ft_model_file)):
-            self.fasttext_preprocess()
+            self._fasttext_preprocess(data)
             if method == 'skipgram':
-                fasttext.skipgram(self.ft_input_file, output_name)
+                fasttext.skipgram(self.ft_input_file, output_name,
+                                  dim=dim, ws=context_size, epoch=epochs, min_count=min_count)
             else:
-                fasttext.cbow(self.ft_input_file, output_name)
+                fasttext.cbow(self.ft_input_file, output_name,
+                              dim=dim, ws=context_size, epoch=epochs, min_count=min_count)
         self.load_fasttext_model()
 
     def _setup_vector_similarity(self):

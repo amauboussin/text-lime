@@ -22,10 +22,10 @@ class Explanation(object):
             label: zip(string_tokens, [coef for coef in model.coef_])
             for label, model in self.local_models.items()
         }
+        self.all_tokens = all_tokens
 
-        self.contrastive_examples = get_contrastive_examples(predicted_label, all_distances,
+        self.contrastive_examples = get_contrastive_examples(doc, predicted_label, all_distances,
                                                              all_tokens, blackbox_probs)
-
 
     def as_list(self, label):
         """Return a list of tuples (token, contribution) for the given label"""
@@ -44,7 +44,8 @@ class Explanation(object):
 
 
 def get_explanation(dataset, doc, predict_proba, n_classes=None,
-                    max_simultaneous_perturbations=2, softmax_temps=None):
+                    max_simultaneous_perturbations=2, softmax_temps=None,
+                    debug_mode=False):
     """Get explanations"""
     softmax_temps = softmax_temps or [.1, 1.]
     all_tokens = []
@@ -75,10 +76,10 @@ def get_explanation(dataset, doc, predict_proba, n_classes=None,
 
     explanation = Explanation(predicted_label, doc, local_model_by_label, score_by_label,
                               blackbox_probs, all_tokens, all_distances)
-
-    explanation.tokens = all_tokens
-    explanation.distances = all_distances
-    explanation.probs = blackbox_probs
+    if debug_mode:  # attach full data for logging/debugging
+        explanation.tokens = all_tokens
+        explanation.distances = all_distances
+        explanation.probs = blackbox_probs
     return explanation
 
 
@@ -97,9 +98,10 @@ def get_contrastive_examples(doc, predicted, distances, tokens, probs):
         # if the prediction ever flipped to the class, minimize distance it took to flip
         if np.sum(predicted_as_class) > 0:
             contrast_index = distances_by_example[predicted_as_class].argmin()
-        # if it never flipped, just maximize probability
+        # if it never flipped, just continue could maximize probability
         else:
-            contrast_index = probs_df.loc[:, label].argmax()
+            # (if we want to maximize probability): contrast_index = probs_df.loc[:, label].argmax()
+            continue
         new_tokens = tokens[contrast_index]
         diffs = [(i, (original, new))
                  for i, (original, new) in enumerate(zip(original_tokens, new_tokens))

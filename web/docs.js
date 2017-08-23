@@ -1,12 +1,11 @@
 
 
-
-var redScale = d3.scaleLinear()
-	    .range(["#ffffff", "#ff6b6b"]);
-
-var blueScale = d3.scaleLinear()
-	    .range(["#ffffff", "#5c9afd"]);
-
+var select_char_threshold = 45;
+var class_colors = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f"];
+  var class_scales = class_colors.map(function(c){
+    return d3.scaleLinear()
+          .range(["#ffffff", c]);
+  });
 function get_docs_by_id(examples){
   var docs_by_id = {};
   for (i in examples){
@@ -31,9 +30,10 @@ function get_docs_by_cell(examples){
 }
 
 function create_doc_select(){
-  return d3.select("#doc-select")
-    .on("change", function() { dispatch.call("doc-select",
+  var select = d3.select("#doc-select")
+    .on("change", function() {dispatch.call("doc-select",
         this, this.value); });
+  return select;
 }
 
 function update_doc_select(docs){
@@ -41,26 +41,35 @@ function update_doc_select(docs){
     .data(docs, function(d){return d["id"];});
 
   options.enter().append("option")
+    .attr("class", "list-group-item doc-select-item")
     .attr("value", function (d){return d["id"];})
     .text(function (d) {
-      var last_allowed_space = d["content"].substring(0, 40).lastIndexOf(" ");
-      return d["content"].substring(0, last_allowed_space) + "...";
+      var last_allowed_space = d["content"].substring(0, select_char_threshold).lastIndexOf(" ");
+      return d["content"].substring(0, last_allowed_space) + " ...";
     });
 
   options.exit().remove();
 
   doc_select.property('value', docs[0]["id"]);
   update_doc_viewer(docs[0]);
-
+  update_bar_chart(docs[0]);
+  update_contrastive_examples(docs[0]);
 
   doc_select.on("change", function(d){
-    update_doc_viewer(docs_by_id[doc_select.property("value")])
+    var doc = docs_by_id[doc_select.property("value")];
+    dispatch.call("doc-select", this, doc);
   });
 
 }
 
+
 function doc_max_importance(doc){
-  return d3.max(Object.values(doc["explanation"]), function (val) {return Math.abs(val[1])});
+  return d3.max(Object.values(doc["explanation"]), function (token_importances) {
+    var importance_vals = token_importances.slice(1).map(function(importance, i){
+      return d3.max([0, importance * doc[i]]);
+    });
+    return d3.max(importance_vals)
+  });
 }
 
 function batch_max_importance(docs){
@@ -103,19 +112,21 @@ function create_viewer(){
 
 function update_doc_viewer(doc) {
   var max_importance = d3.max([.01, doc_max_importance(doc)]);
-  blueScale.domain([0, max_importance]);
-  redScale.domain([0, max_importance]);
+  for (var i in class_scales){
+    class_scales[i].domain([0, max_importance]);
+  }
 
-  var model_correct = (doc["label"]  === doc["predicted"]);
-  var positiveContrib = model_correct ? blueScale : redScale;
-  var negativeContrib =  model_correct ? redScale : blueScale;
-
+  //update header
   d3.select("#doc-id")
     .text("ID: " + doc["id"]);
   d3.select("#doc-label")
-    .text("Label: " + class_labels[doc["label"]]);
+    .text("Label: " + class_labels[doc["label"]])
+    .style('background', class_colors[doc["label"]]);
+
   d3.select("#doc-prediction")
-    .text("Predicted: " + class_labels[doc["predicted"]]);
+    .text("Predicted: " + class_labels[doc["predicted"]])
+    .style('background', class_colors[doc["predicted"]]);
+
 
   var tokens = doc["explanation"];
   doc_viewer.selectAll(".token").remove();
@@ -126,12 +137,53 @@ function update_doc_viewer(doc) {
   var token_text = token_divs.append("span")
     .text(function(d){return d[0];})
     .style("background", function (d) {
-        var importance = d[1];
-        return importance >= 0 ? positiveContrib(importance): negativeContrib(-importance);
+      var max_value = d3.max(d.slice(1));
+      var max_index = d.slice(1).indexOf(max_value);
+      return class_scales[max_index](max_value * doc[max_index]);
+        // var importance = d[d[""]];
+        // return importance >= 0 ? positiveContrib(importance): negativeContrib(-importance);
     });
   var spaces = token_divs.append("span")
     .text(" ")
     .style("background", "white")
   }
 
-//put each token in a spanand modify the background color
+  // TODO format this in the json blob so this javascript can be deleted
+function update_contrastive_examples(doc){
+  d3.selectAll('#contrastive-examples div').remove();
+  var available_classes = Object.keys(doc['contrastive_examples']);
+  if (available_classes.length) {
+  d3.select("#contrastive-examples")
+    .append("div")
+    .attr("class", "section-title")
+    .text("Contrastive Examples");
+
+    for (var i in available_classes) {
+      var explained_class = available_classes[i];
+      var token_switches = {};
+      var switch_list = doc["contrastive_examples"][explained_class];
+      for (var j in switch_list) {
+        token_switches[switch_list[j][0]] = switch_list[j][1][1];
+      }
+      var class_div = d3.select('#contrastive-examples').append("div");
+      class_div.append("div")
+        .attr("class", "smaller-title")
+        .text("Change required to change to class from " + class_labels[doc["predicted"]] + " to " + class_labels[explained_class]);
+      var token_divs = class_div.selectAll('.token')
+        .data(doc["explanation"])
+        .enter().append("span")
+        .attr("class", "token");
+      var token_text = token_divs.append("span")
+        .text(function (d, i) {
+          return (token_switches.hasOwnProperty(i) ? token_switches[i] : d[0]);
+        })
+        .style("background", function (d, i) {
+          return token_switches.hasOwnProperty(i) ? class_colors[explained_class] : "white";
+        });
+      var spaces = token_divs.append("span")
+        .text(" ")
+        .style("background", "white");
+    }
+  }
+}
+

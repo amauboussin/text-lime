@@ -22,7 +22,9 @@ def softmax(x, temp):
 def get_neighboring_docs(dataset, doc, max_subset_size, softmax_temp=1.):
 
     token_list = [token.text.lower() for token in doc]
-    masks = get_all_masks(len(token_list), max_subset_size)
+    # masks = get_all_masks(len(token_list), max_subset_size)
+    masks = get_n_gram_masks(len(token_list), max_subset_size)
+
 
     #  sample replacement tokens
     n_samples = len(masks)

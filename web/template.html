@@ -22,22 +22,18 @@
         <!--<div class="row-fluid"><h1>Loading tweets...</h1></div>-->
     <!--</div>-->
 
-    <div class="container-fluid" id="vis-interface">
-        <div class="row-fluid"><h1>Understanding Text Classification</h1></div>
+    <div class="container" id="vis-interface">
+        <div class="row"><h1>Understanding Text Classification</h1></div>
         <div class="row-fluid">
-            <div class="col-xs-12 col-md-2">
-            </div>
-            <div class="col-xs-12 col-md-8">
+
+            <div class="col-xs-12 col-lg-offset-1">
                 <div id="matrix-container" class="centered"></div>
             </div>
-            <div class="col-xs-12 col-md-2">
-            </div>
+
         </div>
-        <div class="row-fluid">
+        <div class="row">
             <div class="col-xs-12">
-            <div class="col-xs-12 col-md-2">
-            </div>
-            <div class="col-xs-12 col-md-8">
+            <div class="col-xs-12 col-md-12">
                 <div class="centered">
                 <h4 class="description"> Documents predicted as </h4>
                 <select id="predicted-label-select" class="inline-select description"></select>
@@ -46,19 +42,18 @@
                 <h4 class="description">:</h4>
                 </div>
             </div>
-            <div class="col-xs-12 col-md-2">
             </div>
         </div>
-        <div class="row-fluid">
+        <div class="row">
              <div class="col-md-offset-2 col-md-8">
                  <div id="aggregates" style="display: none;"></div>
              </div>
 
         </div>
-        <div class="row-fluid">
+        <div class="row">
 
-            <div class="col-xs-12 col-md-8 col-md-offset-2">
-                <div class="row-fluid">
+            <div class="col-xs-12">
+                <div class="row">
                     <div class="col-xs-4">
                         <div id="doc-selector-container">
                             <select id="doc-select" size="3" name="selectionField" multiple="no">
@@ -68,15 +63,25 @@
                     <div class="col-xs-8">
                         <div id="doc-container">
                             <div id="doc-metadata">
-                                <div class="row-fluid">
+                                <div class="row">
                                     <div id="doc-id" class="col-xs-3"></div>
                                     <div id="doc-label" class="col-xs-4"></div>
                                     <div id="doc-prediction" class="col-xs-5"></div>
                                 </div>
                             </div>
-                            <div class="row-fluid">
+                            <div class="row">
                                 <div class="col-xs-12">
                                     <div id="doc-viewer"></div>
+                                    <div class="row">
+                                        <div class="col-xs-12">
+                                            <div id="bar-chart"></div>
+                                        </div>
+                                    </div>
+                                     <div class="row">
+                                        <div class="col-xs-12">
+                                            <div id="contrastive-examples"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -90,10 +95,14 @@
 
 	<script src="matrix.js"></script>
     <script src="docs.js"></script>
+    <script src="bar_chart.js"></script>
+
 
 	<script>
 
 		var matrix_data, class_labels, docs_by_id, docs_by_cell, doc_select, doc_viewer, aggregates;
+
+
 
 		var dispatch = d3.dispatch("cell-highlight", "cell-unhighlight",
             "cell-click", "row-highlight", "row-unhighlight", "doc-select");
@@ -101,17 +110,16 @@
 		doc_select = create_doc_select();
 		doc_viewer = create_viewer();
 
-        d3.json("data/ag_news2.json", function(data) {
+        d3.json("data/rf_full.json", function(data) {
             matrix_data = data["confusion_matrix"];
             class_labels = data["labels"];
-            class_labels = ["International", "Sports", "Business", "Tech"];
 //            class_labels = ['cs.AI', 'cs.DS', 'stat.ML', 'cs.CL']
-//            class_labels = ['AI', 'Algorithms', 'ML', 'NLP'];
             docs_by_id = get_docs_by_id(data["examples"]);
             docs_by_cell = get_docs_by_cell(data["examples"]);
             aggregates = data["aggregate_explanation"];
+       		make_bar_chart(d3.select("#bar-chart"));
+            update_bar_chart(data["examples"][0]);
             update_doc_select(data["examples"]);
-//            update_doc_viewer(docs_by_id[89017]);
 
             create_label_select(class_labels);
             Matrix({
@@ -125,9 +133,6 @@
             });
         });
 
-    dispatch.on("doc-select", function(value){
-      console.log(value);
-    });
     dispatch.on("cell-click.doc-filter", function(row, col){
       var docs = [];
       if (row >= 0 && col >= 0){
@@ -167,7 +172,13 @@
         d3.select('#aggregates').style("display", "none")
       }
     });
-
+    dispatch.on("doc-select.change_bar", function(doc){
+      update_doc_viewer(doc);
+      update_bar_chart(doc);
+    });
+    dispatch.on("doc-select.update_contrastive", function(doc){
+      update_contrastive_examples(doc);
+    })
 
 
     //create an inner rect

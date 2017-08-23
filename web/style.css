@@ -41,11 +41,26 @@
     padding-bottom: 10px;
 }
 
+.section-title{
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.smaller-title{
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 15px;
+}
+
 
 #doc-select{
     width: 100%;
-    height: 200px;
+    height: 400px;
     margin-top: 50px;
+}
+
+.doc-select-item{
+    padding-left: 5px;
 }
 
 #doc-viewer{
@@ -74,4 +89,16 @@
 
 .centered {
   margin: 0 auto;
+}
+
+#bar-title{
+    font-size: 18px;
+}
+
+#contrastive-examples{
+    margin-top: 30px;
+}
+
+.tick text{
+    font-size: 15px;
 }

@@ -1,107 +1,87 @@
-//https://bl.ocks.org/hrecht/f84012ee860cb4da66331f18d588eee3
-function create_bar_chart(container)
-  var data = [{
-      "name": "Apples",
-      "value": 20,
-  },
-    {
-      "name": "Bananas",
-      "value": 12,
-  },
-    {
-      "name": "Grapes",
-      "value": 19,
-  },
-    {
-      "name": "Lemons",
-      "value": 5,
-  },
-    {
-      "name": "Limes",
-      "value": 16,
-  },
-    {
-      "name": "Oranges",
-      "value": 26,
-  },
-    {
-      "name": "Pears",
-      "value": 30,
-  }];
 
-  //sort bars based on value
-  data = data.sort(function (a, b) {
-    return d3.ascending(a.value, b.value);
-  });
+var bar_width = 300;
+var bar_height = 300;
+var bar_tick_height = 5;
+var bar_chart;
+var bar_transition_duration = 250;
+var bar_title_offset = 30;
+var bar_margin = {
+  "left": 100,
+  "right": 0,
+  "top": 50,
+  "bottom": 0
+};
 
-  //set up svg using margin conventions - we'll need plenty of room on the left for labels
-  var margin = {
-    top: 15,
-    right: 25,
-    bottom: 15,
-    left: 60
-  };
+function make_bar_chart(container){
 
-  var width = 960 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
 
-  var svg = container.append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+	var svg = container.append("svg")
+	    .attr("width", bar_width + bar_margin.left + bar_margin.right)
+	    .attr("height", bar_height + bar_margin.top + bar_margin.bottom)
+		.append("g")
+	    .attr("transform", "translate(" + bar_margin.left + "," + bar_margin.top + ")");
 
-  var x = d3.scale.linear()
-    .range([0, width])
-    .domain([0, d3.max(data, function (d) {
-      return d.value;
-    })]);
 
-  var y = d3.scale.ordinal()
-    .rangeRoundBands([height, 0], .1)
-    .domain(data.map(function (d) {
-      return d.name;
-    }));
+  var x = d3.scaleLinear()
+    .domain([0, 1.05])
+    .range([0, bar_width]);
+  var y = d3.scaleBand()
+    .range([bar_height, bar_tick_height + bar_margin.top]);
 
-  //make y axis to show bar names
-  var yAxis = d3.svg.axis()
-    .scale(y)
-    //no tick marks
-    .tickSize(0)
-    .orient("left");
+  var chart_svg = svg.append("g");
 
-  var gy = svg.append("g")
-    .attr("class", "y axis")
-    .call(yAxis)
+  var title = chart_svg.append("text")
+    .attr("id", "bar-title")
+    .attr("x", bar_width / 2)
+    .attr("y", 0)
+    .attr("text-anchor", "middle")
+    .text("Predicted Probabilities");
 
-  var bars = svg.selectAll(".bar")
-    .data(data)
-    .enter()
-    .append("g");
+  var x_axis = chart_svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + (bar_height + bar_title_offset) + ")");
 
-  //append rects
-  bars.append("rect")
-    .attr("class", "bar")
-    .attr("y", function (d) {
-      return y(d.name);
-    })
-    .attr("height", y.rangeBand())
-    .attr("x", 0)
-    .attr("width", function (d) {
-      return x(d.value);
-    });
+  var y_axis = chart_svg.append("g")
+      .attr("class", "y axis");
 
-  //add a value label to the right of each bar
-  bars.append("text")
-    .attr("class", "label")
-    //y position of the label is halfway down the bar
-    .attr("y", function (d) {
-      return y(d.name) + y.rangeBand() / 2 + 4;
-    })
-    //x position is 3 pixels to the right of the bar
-    .attr("x", function (d) {
-      return x(d.value) + 3;
-    })
-    .text(function (d) {
-      return d.value;
-    });
+   bar_chart =  {
+      "svg": chart_svg,
+      "x": x, "x_axis": x_axis,
+      "y": y, "y_axis": y_axis
+   }
+}
+
+ function update_bar_chart(doc){
+  // change y domain according to sorted order
+
+   var ordered_labels = class_labels.slice().sort(function(a, b){
+     return doc[class_labels.indexOf(a)] -  doc[class_labels.indexOf(b)];
+   });
+   bar_chart.y.domain(ordered_labels.map(function(d, i) { return d; })).padding(0.1);
+
+    bar_chart.x_axis.transition(bar_transition_duration)
+      .call(d3.axisTop(bar_chart.x)
+          .ticks(6).tickFormat(function(d){
+              return d; })
+          .tickSizeInner([bar_height]));
+    bar_chart.y_axis.transition(bar_transition_duration)
+      .call(d3.axisLeft(bar_chart.y));
+
+    var bars = bar_chart.svg.selectAll("rect")
+      .data(class_labels, function(d){return d + doc["id"]});
+
+    bars.enter().append("rect")
+      .attr("class", "bar")
+      .attr("height", bar_chart.y.bandwidth())
+      .attr("y", function(d) { return bar_chart.y(d); })
+      .attr("width", function(d, i) {return bar_chart.x(doc[i]); })
+      .style("fill", function(d, i){return class_colors[i];})
+      .style("stroke",  function(d, i){return class_colors[i];});
+    bars.exit().remove();
+    bars.transition().duration(bar_transition_duration)
+      .attr("y", function(d) { return bar_chart.y(d); })
+      .attr("height", bar_chart.y.bandwidth())
+      .attr("width", function(d, i) {return bar_chart.x(doc[i]); });
+
+
+ }
