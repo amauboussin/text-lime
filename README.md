@@ -1,7 +1,6 @@
-# Active Learning for Text Classification
+# Explaining the predictions of any (text) classifier
 
-Measure the uncertainty of black-box text classification models, and use the results for active learning.
+An extension of LIME [Ribeiro et. al 2016](https://arxiv.org/abs/1602.04938) for text classification.
+The main pipeline trains words embeddings using [fastText](https://github.com/facebookresearch/fastText), add noises to embedding space of documents,
+and identifies important words by analyzing how the noise affects the output probabilities of any text classification model. The results are visualized in d3.js.
 
-
-Confusion matrix code
-https://bl.ocks.org/arpitnarechania/dbf03d8ef7fffa446379d59db6354bac

@@ -2,15 +2,22 @@
 
 var select_char_threshold = 45;
 var class_colors = ["#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f"];
-  var class_scales = class_colors.map(function(c){
-    return d3.scaleLinear()
-          .range(["#ffffff", c]);
-  });
+
+var class_scales = class_colors.map(function(c){
+  return d3.scaleLinear()
+        .range(["#ffffff", c]);
+});
+
 function get_docs_by_id(examples){
   var docs_by_id = {};
-  for (i in examples){
+  var correct = 0;
+  for (var i in examples){
     docs_by_id[examples[i]["id"]] = examples[i];
+    if (examples[i]["predicted"] == examples[i]["label"]){
+      correct += 1;
+    }
   }
+  accuracy = (100 * correct / examples.length).toPrecision(4);
   return docs_by_id
 }
 

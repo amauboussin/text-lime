@@ -41,6 +41,11 @@
     padding-bottom: 10px;
 }
 
+#accuracy{
+    font-size: 18px;
+    font-weight: 500;
+}
+
 .section-title{
     font-size: 18px;
     font-weight: bold;

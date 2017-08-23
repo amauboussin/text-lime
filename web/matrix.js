@@ -1,4 +1,4 @@
-var margin = {top: 50, right: 50, bottom: 200, left: 250};
+var margin = {top: 50, right: 250, bottom: 200, left: 250};
 
 
 function Matrix(options) {
@@ -8,7 +8,8 @@ function Matrix(options) {
 	    container = options.container,
 	    labelsData = options.labels,
 	    startColor = options.start_color,
-	    endColor = options.end_color;
+	    endColor = options.end_color,
+      accuracy = options.accuracy;
 
 	var maxValue = d3.max(data, function(layer) { return d3.max(layer, function(d) { return d; }); });
 
@@ -27,6 +28,12 @@ function Matrix(options) {
 	    .attr("height", height + margin.top + margin.bottom)
 		.append("g")
 	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	svg.append("text")
+    .text("Total Accuracy: " + accuracy + "%")
+    .attr("x", width + 20)
+    .attr("y", 50)
+    .attr("id", "accuracy")
 
 	var x = d3.scaleBand()
 	    .domain(d3.range(numcols))
