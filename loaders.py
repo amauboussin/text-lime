@@ -20,6 +20,13 @@ Functions to load datasets from whatever format they are in to a list of dicts:
 """
 
 
+def load_movie_reviews(path):
+    with open(path, 'r') as rfile:
+        lines = rfile.readlines()
+        data = [{'label': int(l[0]), 'content': unicode(l[2:-2], errors='replace')} for l in lines]
+    return data
+
+
 def load_newsgroups():
     ng = fetch_20newsgroups()
     ids = np.arange(ng.target.size)

@@ -50,12 +50,19 @@ class TextDataSet(object):
         # only tokens of the same category are eligible to be similar words
         self.get_token_category = lambda t: t.tag_
 
+    @staticmethod
+    def preconfigured_options():
+        """Returns a list of pre-configured dataset loaders"""
+        return DATASET_CONFIG.keys()
+
     @property
     def docs(self):
+        """Return the 'content' key from each example"""
         return pluck('content', self.data)
 
     @property
     def labels(self):
+        """Return the 'label' key from each example"""
         return pluck('labels', self.data)
 
     def train_test_split(self, test_size, seed=None):
@@ -76,6 +83,11 @@ class TextDataSet(object):
             print 'Loading data from original source'
             raw_text_data = self.loader(**self.load_args)
             self.data = np.array(list(parse_content_serial(raw_text_data)))
+
+        # if there are no ids just add them
+        if not all(['id' in row for row in self.data]):
+            for i, example in enumerate(self.data):
+                example['id'] = i + 1
 
         self.n_classes = len(set([row['label'] for row in self.data]))
 

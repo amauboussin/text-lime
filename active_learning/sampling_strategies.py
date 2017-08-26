@@ -231,8 +231,8 @@ def contains_misunderstood_words_by_label(k, predict_proba, original_data, valid
         #  only keep things tokens that on average contributed to misclassification
         stats = stats.loc[stats.total_contribution > 0]
         stats['rank'] = stats.frequency_rank * stats.total_contribution
-        print label, predicted_class
-        print stats.sort_values('rank').tail(10)
+        # print label, predicted_class
+        # print stats.sort_values('rank').tail(10)
         stats['sampling_prob'] = softmax(stats['rank'].values, softmax_temp)
         all_token_stats[(label, predicted_class)] = stats
 

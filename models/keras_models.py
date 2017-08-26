@@ -31,7 +31,8 @@ class _KerasModel(object):
 
 class BidirectionalLSTM(object):
 
-    def __init__(self, train, test, embedding_size=128, lstm_cell_size=64, dropout_prob=.5, kernel_l2=0):
+    def __init__(self, train, test, embedding_size=128, lstm_cell_size=64, embedding_dropout_prob=.5,
+                 dropout_prob=.5, kernel_l2=0.01):
 
         self.x_train, self.x_test = pluck('content', train), pluck('content', test)
         self.y_train, self.y_test = pluck('label', train), pluck('label', test)
@@ -49,6 +50,7 @@ class BidirectionalLSTM(object):
 
         self.model = Sequential()
         self.model.add(Embedding(vocab_size, embedding_size, input_length=self.x_train.shape[1]))
+        self.model.add(Dropout(embedding_dropout_prob))
         self.model.add(Bidirectional(LSTM(lstm_cell_size, kernel_regularizer=L1L2(l1=0.0, l2=kernel_l2))))
         self.model.add(Dropout(dropout_prob))
         self.model.add(Dense(n_labels, activation='softmax'))

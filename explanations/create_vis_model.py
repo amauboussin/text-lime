@@ -1,20 +1,20 @@
 from collections import defaultdict
-from funcy import pluck
 from itertools import product
 import json
+import os
 from random import randint
 
+from funcy import pluck
+import jinja2
 import numpy as np
 from sklearn.model_selection import train_test_split
 
 from active_learning.scoring import add_prediction_info, add_lime_explanation, add_mmos_explanations
+from dataset_config import WEB_DIR
+
 from doc_stats import top_k_token_tag_similarity, top_k_custom_vector_similarity, top_k_glove_vector_similarity
 from explain import get_confusion_matrix, get_important_tokens, get_token_misclassification_stats
-from models.sklearn_models import get_bow_logistic
 
-
-model = get_bow_logistic(vectorizer_params={'max_df': .8, 'min_df': .001},
-                         clf_params={'C': .03})
 
 SIMILARITY_METRICS = {
     'token_tag': top_k_token_tag_similarity,
@@ -22,46 +22,71 @@ SIMILARITY_METRICS = {
     'custom': top_k_custom_vector_similarity,
 }
 
-DEFAULT_SOFTMAX_TEMPS = [.1, .3, .8]
-
+DEFAULT_SOFTMAX_TEMPS = [.5, .1, 3.]
 N_LIME_FEATURES = 8
 N_LIME_SAMPLES = 10
-
 N_SIMILAR = 10
+
+HTML_DIR = WEB_DIR
+JSON_DIR = os.path.join(WEB_DIR, 'data')
+TEMPLATE_DIR = os.path.join(WEB_DIR, 'templates')
 
 
 class ModelVisualization(object):
 
-    def __init__(self, name, dataset, train_data, valid_data, predict_proba, class_labels):
+    def __init__(self, name, dataset, valid_data, predict_proba, class_labels=None, train_data=None):
+        """Create a new visualization
+        Args:
+            name: (str) Name of the visualization (e.g. "movie review conv net")
+            dataset: (dataset.TextDataset) Dataset container
+            valid_data (List of dictionaries) Validation data to visualize
+            class_labels: (List) List of class names
+            train_data: (List of dictionaries) if provided, train data can be used
+                to find training examples similar to each validation example
+            """
         self.dataset = dataset
         self.name = name
         self.class_labels = class_labels or map(str, range(self.dataset.n_classes))
         self.predict_proba = predict_proba
-        self.train_data = train_data
         self.valid_data = valid_data
+        self.valid_data_by_label = self._group_examples_by_label(valid_data)
 
-        self.train_data_by_label = self._group_examples_by_label(self.train_data)
-        self.valid_data_by_label = self._group_examples_by_label(self.train_data)
+        if train_data is not None:
+            self.train_data = train_data
+            self.train_data_by_label = self._group_examples_by_label(train_data)
+        else:
+            self.train_data = None
+            self.train_data_by_label = None
 
         self.confusion_matrix = None
         self.explanation_aggregates = None
 
     @classmethod
-    def from_sklearn_model(cls, name, dataset, valid_percent, model, split_random_seed=None, labels=None):
-
+    def from_sklearn_model(cls, name, dataset, valid_percent, model, split_random_seed=None, class_labels=None):
+        """Constructor that splits data into train/valid and trains an sklearn model
+        Args:
+            name: (str) Name of the visualization (e.g. "movie review conv net")
+            dataset: (dataset.TextDataset) Dataset container.
+            valid_percent: (Float) Percentage of data to be held for visualization
+            model: (sklearn pipeline) Model with .fit() and .predictproba(x) methods
+            split_random_seed: (int) Random seed to be used when splitting data
+            class_labels: (List) List of class names
+        """
         split_random_seed = split_random_seed or randint(0, 2**32-1)
         train_data, valid_data = train_test_split(dataset.data, test_size=valid_percent,
                                                   random_state=split_random_seed)
         model.fit(pluck('content', train_data), pluck('label', train_data))
-        return cls(name, dataset, train_data, valid_data, model.predict_proba, labels)
+        return cls(name, dataset, valid_data, model.predict_proba, class_labels, train_data)
 
     def get_predictions(self):
-        self.train_data = add_prediction_info(self.predict_proba, self.train_data)
+        """Add model predictions to each example and create the confusion matrix"""
+        if self.train_data is not None:
+            self.train_data = add_prediction_info(self.predict_proba, self.train_data)
         self.valid_data = add_prediction_info(self.predict_proba, self.valid_data)
         self.confusion_matrix = get_confusion_matrix(self.valid_data)
 
     def add_lime_explanations(self):
-        #  add explanation. aggregate for each confusion matrix cell
+        """Add LIME explanations for each examples in the validation data"""
         self.valid_data = add_lime_explanation(self.predict_proba, self.valid_data,
                                                self.dataset.n_classes,
                                                num_features=N_LIME_FEATURES,
@@ -73,25 +98,26 @@ class ModelVisualization(object):
             row['lime_explanation'] = row['lime_explanation'].as_list(int(row['predicted']))
             row['lime_explanation'] = [(token, round(value, 4)) for token, value in row['lime_explanation']]
 
-    def add_explanations(self, n_gram_size=2, softmaxt_temps=None):
-        softmaxt_temps = softmaxt_temps or DEFAULT_SOFTMAX_TEMPS
+    def add_explanations(self, n_gram_size=3, softmax_temps=None):
+        """Add explanations for each examples in the validation data"""
+        if self.dataset.ft_vocab is None:
+            raise ValueError('No fast text embeddings found for data set')
+        softmax_temps = softmax_temps or DEFAULT_SOFTMAX_TEMPS
         self.valid_data = add_mmos_explanations(self.predict_proba, self.valid_data, self.dataset,
-                                                self.dataset.n_classes, softmax_temps=softmaxt_temps,
+                                                self.dataset.n_classes, softmax_temps=softmax_temps,
                                                 max_simultaneous_perturbations=n_gram_size)
         self.explanation_aggregates = self._aggregate_reasons(self.valid_data, 'explanation')
 
         # swap out explanation to just explain the predicted class
         labels = range(len(self.class_labels))
         for row in self.valid_data:
-            # row['original_explanation'] = row['explanation']
             explanation_object = row['explanation']
             row['contrastive_examples'] = explanation_object.contrastive_examples
             explanations_by_class = {label: explanation_object.as_list(label) for label in labels}
+            tokens = [token for (token, value) in explanations_by_class[0]]
             js_formatted_explanation = [[token] + [round(explanations_by_class[label][i][1], 4) for label in labels]
-                 for i, (token, value) in enumerate(explanations_by_class[0])]
+                                        for i, token in enumerate(tokens)]
             row['explanation'] = js_formatted_explanation
-            # row['explanation'] = row['explanation'].as_list(row['predicted'])
-            # row['explanation'] = [(token, round(value, 4)) for token, value in row['explanation']]
             row['stats'] = explanation_object.blackbox_prob_stats(row['predicted']).to_dict()
 
     def _aggregate_reasons(self, data, explanation_key):
@@ -109,6 +135,9 @@ class ModelVisualization(object):
         return aggregate_reasons
 
     def add_similarities(self):
+        """Find similarities between validation examples and training examples"""
+        if self.train_data_by_label is None:
+            raise ValueError("Can't compute similarities because training data wasn't provided")
         self.dataset.get_all_embedding_means()
         for metric_name, similarity_function in SIMILARITY_METRICS.items():
             self._get_classwise_simlarities(self.valid_data,
@@ -121,7 +150,7 @@ class ModelVisualization(object):
                                             similarity_function)
 
     def _get_classwise_simlarities(self, query_data, data_by_label, function_name, similarity_function):
-        """For each document in query_data, calculate the N_SIMILAR closest docs"""
+        """For each document in query_data, calculate the N_SIMILAR closest docs with each label"""
         for label, examples in data_by_label.items():
             example_id_lookup = {i: row['id'] for i, row in enumerate(examples)}
 
@@ -159,7 +188,7 @@ class ModelVisualization(object):
             serializable_aggregate_explanations.append(explanation_row)
         return serializable_aggregate_explanations
 
-    def serialize(self, filename):
+    def serialize_data(self, filename, human_readable_json=False):
         """Write serialized model to the given filename"""
         examples_to_serialize = self._prepare_examples_for_json(self.valid_data)
         confusion_matrix = self._serializable_confusion_matrix()
@@ -171,7 +200,28 @@ class ModelVisualization(object):
         }
         if self.explanation_aggregates is not None:
             data['aggregate_explanation'] = self._serialize_aggregate_importances()
-        json.dump(data, open(filename, 'w'), indent=2)
+        json.dump(data, open(filename, 'w'), indent=(2 if human_readable_json else None))
+
+    def create_visualization(self, human_readable_json=False, include_lime_explanations=True,
+                             **explanation_options):
+        """Write an HTML file with a d3 visualization. See add_explanations for explanation args."""
+
+        # run model and create explanations
+        self.get_predictions()
+        self.add_explanations(**explanation_options)
+        if include_lime_explanations:
+            self.add_lime_explanations()
+
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(TEMPLATE_DIR)
+        )
+        json_filepath = 'data/{}.json'.format((self.name.replace(' ', '_').lower()))
+        self.serialize_data(json_filepath, human_readable_json)
+
+        html_filename = '{}.html'.format(self.name.replace(' ', '_').lower())
+        ctx = {'title': self.name, 'header': self.name, 'json': json_filepath}
+        html = env.get_template('base.html').render(ctx)
+        open(os.path.join(HTML_DIR, html_filename), 'w').write(html)
 
     @staticmethod
     def _prepare_examples_for_json( data):

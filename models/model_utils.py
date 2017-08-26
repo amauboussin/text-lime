@@ -83,25 +83,18 @@ def results_df(predict_proba, docs, labels=None):
     """Get dataframe with predicted class probabilities"""
     # make sure labels are zero-indexed
     probs = predict_proba(docs)
-    n_labels = probs.shape[1] if probs.shape[1] > 1 else 2
+    n_probabilities_in_output = probs.shape[1]
 
-    if n_labels <= 2:
-        raise NotImplementedError('entropy for binary classification')
-
-    entropy = -np.sum(probs * np.log(probs), axis=1)
+    if n_probabilities_in_output < 2:
+        raise ValueError('predict_proba must output a probability for each class')
 
     probs_df = pd.DataFrame(probs)
-    if n_labels > 2:
-        predicted_class = probs_df.idxmax(axis=1)
-        if labels is not None:
-            error = [1. - row[label]
-                     for (i, row), label in zip(probs_df.iterrows(), labels)]
+    predicted_class = probs_df.idxmax(axis=1)
+    entropy = -np.sum(probs * np.log(probs), axis=1)
 
-    else:
-        predicted_class = (probs_df[0] > .5).astype(int)
-        #TODO(andrew): add error for binary
-        error = None
-        raise NotImplementedError('error for binary classification')
+    if labels is not None:
+        error = [1. - row[label]
+                 for (i, row), label in zip(probs_df.iterrows(), labels)]
 
     if labels is not None:
         probs_df = probs_df.assign(error=error, label=labels, correct=predicted_class == labels)

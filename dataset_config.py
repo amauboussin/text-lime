@@ -17,6 +17,12 @@ DATASET_CONFIG = {
     '20newsgroups': {
         'load_function': 'load_newsgroups',
     },
+    'mr': {
+        'load_function': 'load_movie_reviews',
+        'load_args': {
+            'path': 'data/mr/rt-polarity.all.txt',
+        },
+    },
     'small_test': {
         'load_function': 'load_test_data',
         'load_args': {
@@ -26,9 +32,10 @@ DATASET_CONFIG = {
     }
 }
 
-ROOT_DIR = '/Users/amauboussin/Desktop/text/main'
+WEB_DIR = '/Users/amauboussin/Desktop/text/main/mmos/web'
+DATA_DIR = '/Users/amauboussin/Desktop/text/main'
 SAVE_LOCS = {
-    'serialized_data': os.path.join(ROOT_DIR, 'serialized_data'),
-    'models': os.path.join(ROOT_DIR, 'serialized_models'),
-    'embeddings': os.path.join(ROOT_DIR, 'embeddings'),
+    'serialized_data': os.path.join(DATA_DIR, 'serialized_data'),
+    'models': os.path.join(DATA_DIR, 'serialized_models'),
+    'embeddings': os.path.join(DATA_DIR, 'embeddings'),
 }

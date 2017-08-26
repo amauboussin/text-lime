@@ -1,5 +1,6 @@
 from funcy import pluck
 from lime.lime_text import LimeTextExplainer
+from unidecode import unidecode
 
 from explain import get_explanation
 from models.model_utils import results_df
@@ -59,7 +60,7 @@ def add_lime_explanation(predict_proba, data, n_classes, num_features=8, num_sam
 
     for row in data:
         if True or 'lime_explanation' not in row:
-            space_separated_tokens = ' '.join(map(str, row['content']))
+            space_separated_tokens = ' '.join(map(lambda s: s.text.encode('ascii', errors='ignore'), row['content']))
             row['lime_explanation'] = explainer.explain_instance(space_separated_tokens,
                                                                  predict_proba_from_text,
                                                                  num_features=num_features,
