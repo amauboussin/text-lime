@@ -219,7 +219,12 @@ class ModelVisualization(object):
         self.serialize_data(json_filepath, human_readable_json)
 
         html_filename = '{}.html'.format(self.name.replace(' ', '_').lower())
-        ctx = {'title': self.name, 'header': self.name, 'json': json_filepath}
+        ctx = {
+            'title': self.name,
+            'header': self.name,
+            'json': json_filepath,
+            'matrix_width': 400 if len(self.class_labels) == 2 else 500
+        }
         html = env.get_template('base.html').render(ctx)
         open(os.path.join(HTML_DIR, html_filename), 'w').write(html)
 

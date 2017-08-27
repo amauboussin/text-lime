@@ -1,4 +1,4 @@
-var margin = {top: 50, right: 250, bottom: 200, left: 250};
+var margin = {top: 50, right: 200, bottom: 100, left: 300};
 
 
 function Matrix(options) {
@@ -29,28 +29,31 @@ function Matrix(options) {
 		.append("g")
 	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-	svg.append("text")
-    .text("Total Accuracy: " + accuracy + "%")
-    .attr("x", width + 20)
-    .attr("y", 50)
-    .attr("id", "accuracy")
+
 
 	var x = d3.scaleBand()
-	    .domain(d3.range(numcols))
+	    .domain(d3.range(numcols + 1))
 	    .range([0, width]);
 
 	var y = d3.scaleBand()
-	    .domain(d3.range(numrows))
+	    .domain(d3.range(numrows + 1))
 	    .range([0, height]);
 
 	var colorMap = d3.scaleLinear()
 	    .domain([0, maxValue])
 	    .range([startColor, endColor]);
 
+	svg.append("text")
+    .text("Total Accuracy: " + accuracy + "%")
+    .attr("x", x(numcols) + 10)
+    .attr("y", 50)
+    .attr("id", "accuracy")
+
 	var x_label = svg.append("text")
 		.text("True Label")
 		.attr("text-anchor", "start")
-		.attr("x", -2.2 * x.bandwidth())
+		//the text is about 125 px so offset by that
+		.attr("x", -125 + -x.bandwidth())
 		.attr("y", numrows / 2 * y.bandwidth() + 6)
 		.attr("class", "axis-label");
 
@@ -58,7 +61,7 @@ function Matrix(options) {
 		.text("Predicted Label")
 		.attr("text-anchor", "middle")
 		.attr("x", numcols / 2. * x.bandwidth())
-		.attr("y", height +  y.bandwidth() + 30)
+		.attr("y", height +  40)
 		.attr("class", "axis-label");
 
 
@@ -102,7 +105,7 @@ function Matrix(options) {
 	    .data(labelsData)
 	    .enter().append("g")
 	    .attr("class", "column-label")
-	    .attr("transform", function(d, i) { return "translate(" + x(i) + "," + height + ")"; });
+	    .attr("transform", function(d, i) { return "translate(" + x(i) + "," + (height - y.bandwidth()) + ")"; });
 
 	// label boxes
 	columnLabels.append("rect")
